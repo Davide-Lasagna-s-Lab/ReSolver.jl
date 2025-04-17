@@ -1,11 +1,13 @@
 module ReSolverInterface
 
-using LinearAlgebra
+using LinearAlgebra, Optim, Parameters, Printf
 
 export Residual, optimise!
 
-# include("vectortofield.jl")
-include("residuals.jl")
+include("residual.jl")
+include("options.jl")
+include("trace.jl")
+include("callback.jl")
 include("optimise.jl")
 
 end

@@ -67,26 +67,3 @@ function (f::Residual{X})(dRdx::X, a::X) where {X}
 
     return dRdx, R
 end
-
-
-
-# TODO: move optimisation stuff into this package so this stuff isn't necessary
-function (f::Residual{X})(R, G, a::X) where {X}
-    if G === nothing
-        return f(a)
-    else
-        return f(G, a)
-    end
-end
-
-function (f::Residual)(R, G, x::Vector{Float64})
-    a = vectorToField!(f.projectedCache[3], x)
-    dRda = f.projectedCache[4]
-    if G === nothing
-        R = f(a)[1]
-    else
-        R, dRdω = f(dRda, a)
-        fieldToVector!(G, dRda, dRdω)
-    end
-    return R
-end
