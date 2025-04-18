@@ -1,15 +1,25 @@
 # Interface for the optimisation of a type using the residuals as objective.
 
+# ~~~ Assumed interface for type X ~~~
+#  - eltype(::X) -> Type
+#  - similar(::X) -> X
+#  - dot(::X, ::X) -> Number
+#  - norm(::X) -> Non-negative Real
+#  - broadcasting between variables of type X
+#  - dds!(::X, ::X) -> X
+#  - rhs!(::X, ::X) -> X
+#  - adj!(::X, ::X, ::X) -> X
+
 """
 Some docs
 """
-function optimise!(x::X, RdR!::Residual{X}, trace::T=nothing; opts::OptOptions=OptOptions()) where {X, T<:Union{Nothing, OptimTrace}}
+function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptimTrace}}
     # define functions to compute residuals with Optim.jl
-    function fg!(F, G, a::X) where {X}
+    function fg!(F, G, x::OptimVector)
         if G === nothing
-            return RdR!(a)
+            return RdR!(x.x, x.T)
         else
-            return RdR!(G, a)
+            return RdR!(G, x.x, x.T)
         end
     end
 
@@ -19,5 +29,5 @@ function optimise!(x::X, RdR!::Residual{X}, trace::T=nothing; opts::OptOptions=O
     end
 
     # perform optimisation using Optim.jl
-    return optimize(Optim.only_fg(fg!), x, genOptimOptions(opts))
+    return optimize(Optim.only_fg(fg!), OptimVector(x, T), genOptimOptions(opts))
 end
