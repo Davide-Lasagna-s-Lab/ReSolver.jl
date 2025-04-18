@@ -1,4 +1,4 @@
-name = "ReSolverInterface"
+name = "ReSolver"
 uuid = "9a172a43-bfaf-4cc4-8edb-b32fc4c49da3"
 authors = ["Thomas Burton <tburton5572@gmail.com>"]
 version = "0.1.0"

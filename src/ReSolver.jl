@@ -1,4 +1,4 @@
-module ReSolverInterface
+module ReSolver
 
 using LinearAlgebra, Optim, Parameters, Printf
 

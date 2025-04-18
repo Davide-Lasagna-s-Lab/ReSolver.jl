@@ -1,7 +1,7 @@
 using Test
 using LinearAlgebra
 
-using ReSolverInterface
+using ReSolver
 
 include("test_residuals.jl")
 include("test_optimvector.jl")
