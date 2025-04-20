@@ -6,8 +6,8 @@ export Residual, optimise!
 
 include("residual.jl")
 include("optimvector.jl")
+include("trace.jl")
 # include("options.jl")
-# include("trace.jl")
 # include("callback.jl")
 # include("optimise.jl")
 
