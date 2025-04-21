@@ -1,6 +1,8 @@
 # Definition of the interface to define the object that calculates the residuals
 # for a given generic input.
 
+export Residual
+
 # ! the base profile should be handled inside the navier-stokes operator call
 # ! any norm scaling should be handled inside the norm method and adjoint operator calls
 

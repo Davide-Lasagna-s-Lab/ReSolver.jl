@@ -1,5 +1,7 @@
 # Optimisation options
 
+export OptOptions
+
 @with_kw struct OptOptions{OPTIMIZER<:Optim.AbstractOptimizer, CB}
     # general options
     maxiter::Int = typemax(Int)                                      # maximum number of iterations

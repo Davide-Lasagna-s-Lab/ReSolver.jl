@@ -1,7 +1,6 @@
 # This file contains the definitions to create a default callback method
 # extending the default behaviour of Optim.jl.
 
-# TODO: rename "Optim"->"Opt
 struct CallbackCache{T, O}
     trace::T
     opts::O

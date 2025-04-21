@@ -1,5 +1,7 @@
 # Interface for the optimisation of a type using the residuals as objective.
 
+export optimise!
+
 # ~~~ Assumed interface for type X ~~~
 #  - eltype(::X) -> Type
 #  - similar(::X) -> X
@@ -13,9 +15,9 @@
 """
 Some docs
 """
-function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptimTrace}}
+function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptTrace}}
     # define functions to compute residuals with Optim.jl
-    function fg!(F, G, x::OptimVector)
+    function fg!(F, G, x::OptVector)
         if G === nothing
             return RdR!(x.x, x.T)
         else
@@ -29,5 +31,5 @@ function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::Op
     end
 
     # perform optimisation using Optim.jl
-    return optimize(Optim.only_fg(fg!), OptimVector(x, T), genOptimOptions(opts))
+    return optimize(Optim.only_fg(fg!), OptVector(x, T), genOptimOptions(opts))
 end

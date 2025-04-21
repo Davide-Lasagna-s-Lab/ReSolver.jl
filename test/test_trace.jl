@@ -1,9 +1,9 @@
 @testset "Optimisation trace        " begin
     # construct traces
-    t1 = OptimTrace([0.0])
-    t2 = OptimTrace([0.0], x->x[1]^2)
-    @test t1 isa OptimTrace{Nothing}
-    @test t2 isa OptimTrace{Float64}
+    t1 = OptTrace([0.0])
+    t2 = OptTrace([0.0], x->x[1]^2)
+    @test t1 isa OptTrace{Nothing}
+    @test t2 isa OptTrace{Float64}
 
     # test interface
     @test length(t1) == length(t2) == 0

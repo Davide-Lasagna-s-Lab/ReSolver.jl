@@ -7,9 +7,9 @@ end
 
 @testset "Optimisation callback     " begin
     # construct callback cache
-    t = OptimTrace([0.0])
+    t = OptTrace([0.0])
     cb1 = ReSolver.CallbackCache(t, OptOptions(verbose=false))
-    @test cb1 isa ReSolver.CallbackCache{<:OptimTrace{Nothing}, <:OptOptions}
+    @test cb1 isa ReSolver.CallbackCache{<:OptTrace{Nothing}, <:OptOptions}
     @test cb1.start_itr  == 0
     @test cb1.start_time == 0
 
@@ -25,7 +25,7 @@ end
 
     # construct new callback cache from previous trace
     cb2 = ReSolver.CallbackCache(t, OptOptions(verbose=false))
-    @test cb2 isa ReSolver.CallbackCache{<:OptimTrace{Nothing}, <:OptOptions}
+    @test cb2 isa ReSolver.CallbackCache{<:OptTrace{Nothing}, <:OptOptions}
     @test cb2.start_itr == 1
     @test cb2.start_time == 0.2
     state3 = DummyState(0, 0.8, π-2, Dict("time"=>0, "Current step size"=>0.05, "x"=>randn(1)))

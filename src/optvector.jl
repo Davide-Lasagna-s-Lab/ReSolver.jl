@@ -9,23 +9,23 @@
 # symmetries similar to MVector in NKSearch.jl.
 
 # ~~~ Wrapper vector struct for optimisation ~~~
-mutable struct OptimVector{X, N} <: AbstractVector{Float64}
+mutable struct OptVector{X, N} <: AbstractVector{Float64}
     const x::X
           T::Float64
     
-    OptimVector(x::X, T::Real) where {X} = new{X, length(x) + 1}(x, convert(Float64, T))
+    OptVector(x::X, T::Real) where {X} = new{X, length(x) + 1}(x, convert(Float64, T))
 end
 
 
 # ~~~ interface methods ~~~
-Base.IndexStyle(::Type{<:OptimVector})            = IndexLinear()
-Base.size(::OptimVector{X, N}) where {X, N}       = (N,)
-Base.eltype(x::OptimVector)                       = eltype(x.x)
-Base.similar(x::OptimVector, ::Type{T}) where {T} = OptimVector(similar(x.x, T), 0.0)
-Base.copy(x::OptimVector)                         = OptimVector(copy(x.x), x.T)
+Base.IndexStyle(::Type{<:OptVector})            = IndexLinear()
+Base.size(::OptVector{X, N}) where {X, N}       = (N,)
+Base.eltype(x::OptVector)                       = eltype(x.x)
+Base.similar(x::OptVector, ::Type{T}) where {T} = OptVector(similar(x.x, T), 0.0)
+Base.copy(x::OptVector)                         = OptVector(copy(x.x), x.T)
 
 # storing "N" as parametric type allows compiler to optimise away the if-else blocks through constant propagation
-@inline function Base.getindex(x::OptimVector{X, N}, i::Int) where {X, N}
+@inline function Base.getindex(x::OptVector{X, N}, i::Int) where {X, N}
     if i < N
         @boundscheck checkbounds(x.x, i)
         @inbounds val = x.x[i]
@@ -39,19 +39,19 @@ end
 
 
 # ~~~ broadcasting ~~~
-const OptimVectorStyle = Base.Broadcast.ArrayStyle{OptimVector}
-Base.BroadcastStyle(::Type{<:OptimVector}) = OptimVectorStyle()
+const OptVectorStyle = Base.Broadcast.ArrayStyle{OptVector}
+Base.BroadcastStyle(::Type{<:OptVector}) = OptVectorStyle()
 
-@inline Base.similar(bc::Base.Broadcast.Broadcasted{OptimVectorStyle}, ::Type{T}) where {T} = similar(find_opvec(bc), T)
+@inline Base.similar(bc::Base.Broadcast.Broadcasted{OptVectorStyle}, ::Type{T}) where {T} = similar(find_opvec(bc), T)
 
 find_opvec(bc::Base.Broadcast.Broadcasted) = find_opvec(bc.args)
 find_opvec(args::Tuple)                    = find_opvec(find_opvec(args[1]), Base.tail(args))
 find_opvec(x)                              = x
 find_opvec(::Tuple{})                      = nothing
-find_opvec(x::OptimVector, rest)           = x
+find_opvec(x::OptVector, rest)           = x
 find_opvec(::Any, rest)                    = find_opvec(rest)
 
-@inline function Base.copyto!(dest::OptimVector, bc::Base.Broadcast.Broadcasted{OptimVectorStyle})
+@inline function Base.copyto!(dest::OptVector, bc::Base.Broadcast.Broadcasted{OptVectorStyle})
     # flatten nested broadcasting representation
     bcf = Base.Broadcast.flatten(bc)
 
@@ -64,7 +64,7 @@ find_opvec(::Any, rest)                    = find_opvec(rest)
     return dest
 end
 
-_get_x(x::OptimVector) = x.x
+_get_x(x::OptVector) = x.x
 _get_x(x)              = x
-_get_T(x::OptimVector) = x.T
+_get_T(x::OptVector) = x.T
 _get_T(x)              = x

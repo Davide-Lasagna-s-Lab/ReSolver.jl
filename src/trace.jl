@@ -3,7 +3,7 @@
 
 # TODO: add period to the trace values
 
-export OptimTrace,
+export OptTrace,
        itrs,
        times,
        steps,
@@ -12,7 +12,7 @@ export OptimTrace,
        others
 
 # ~~~ Optimisation trace ~~~
-struct OptimTrace{S, F}
+struct OptTrace{S, F}
     itrs::Vector{Int}
     times::Vector{Float64}
     steps::Vector{Float64}
@@ -21,7 +21,7 @@ struct OptimTrace{S, F}
     others::Vector{S}
     f::F
 
-    function OptimTrace(x, f::F) where {F}
+    function OptTrace(x, f::F) where {F}
         # initialise main trace vectors
         itrs      = Int[]
         times     = Float64[]
@@ -36,15 +36,15 @@ struct OptimTrace{S, F}
         new{typeof(other), F}(itrs, times, steps, residuals, g_norms, others, f)
     end
 end
-OptimTrace(x) = OptimTrace(x, x->nothing)
+OptTrace(x) = OptTrace(x, x->nothing)
 
 
 # ~~~ Trace interface ~~~
-Base.IndexStyle(::Type{<:OptimTrace}) = IndexLinear()
-Base.length(t::OptimTrace) = length(t.itrs)
-Base.lastindex(t::OptimTrace) = length(t)
+Base.IndexStyle(::Type{<:OptTrace}) = IndexLinear()
+Base.length(t::OptTrace) = length(t.itrs)
+Base.lastindex(t::OptTrace) = length(t)
 
-@inline function Base.getindex(t::OptimTrace, i::Int)
+@inline function Base.getindex(t::OptTrace, i::Int)
     @boundscheck checkbounds(t.itrs, i)
     @inbounds state = (t.itrs[i], t.times[i], t.steps[i], t.residuals[i], t.g_norms[i], _get_other(t.others, i))
     return state
@@ -52,14 +52,14 @@ end
 _get_other(others, i)            = others[i]
 _get_other(::Vector{Nothing}, i) = nothing
 
-@inline itrs(t::OptimTrace)      = t.itrs
-@inline times(t::OptimTrace)     = t.times
-@inline steps(t::OptimTrace)     = t.steps
-@inline residuals(t::OptimTrace) = t.residuals
-@inline g_norms(t::OptimTrace)   = t.g_norms
-@inline others(t::OptimTrace)    = t.others
+@inline itrs(t::OptTrace)      = t.itrs
+@inline times(t::OptTrace)     = t.times
+@inline steps(t::OptTrace)     = t.steps
+@inline residuals(t::OptTrace) = t.residuals
+@inline g_norms(t::OptTrace)   = t.g_norms
+@inline others(t::OptTrace)    = t.others
 
-function Base.push!(t::OptimTrace, curr_x, curr_itr, curr_time, curr_step, curr_residual, curr_g_norm, start_itr, start_time)
+function Base.push!(t::OptTrace, curr_x, curr_itr, curr_time, curr_step, curr_residual, curr_g_norm, start_itr, start_time)
     # push the values to main trace vectors
     push!(t.itrs,      curr_itr + start_itr)
     push!(t.times,     curr_time + start_time)
