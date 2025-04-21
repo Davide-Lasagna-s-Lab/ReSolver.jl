@@ -1,20 +1,19 @@
 # This file contains the definitions to create a default callback method
 # extending the default behaviour of Optim.jl.
 
-struct Callback{T, O}
+# TODO: rename "Optim"->"Opt
+struct CallbackCache{T, O}
     trace::T
     opts::O
     start_itr::Int
     start_time::Float64
 
-    function Callback(trace::T, opts::O) where {T, O}
-        start_itr = _get_start_itr(trace)
-        start_time = _get_start_time(trace)
-        new{T, O}(trace, opts, start_itr, start_time)
+    function CallbackCache(trace::T, opts::O) where {T, O}
+        new{T, O}(trace, opts, _get_start_itr(trace), _get_start_time(trace))
     end
 end
 
-function (f::Callback)(state)
+function (f::CallbackCache)(state)
     # unpack current state
     curr_itr = state.iteration
     curr_time = state.metadata["time"]
@@ -27,10 +26,10 @@ function (f::Callback)(state)
     push!(f.trace, curr_x, curr_itr, curr_time, curr_step, curr_residual, curr_g_norm, f.start_itr, f.start_time)
 
     # print state
-    if f.opts.verbose && itr % opts.n_it_print == 0
+    if f.opts.verbose && curr_itr % f.opts.n_it_print == 0
         print_state(f.opts.io, f.trace[end])
     end
 
     # check for convergence and call user defined callback
-    return curr_residual < f.opts.res_tol || f.opts.callback(curr_x, f.trace[end])
+    return curr_residual < f.opts.res_tol || f.opts.callback(curr_x)
 end

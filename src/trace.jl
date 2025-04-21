@@ -1,6 +1,8 @@
 # Interface to keep track of optimisation variables during the course of an
 # optimisation.
 
+# TODO: add period to the trace values
+
 export OptimTrace,
        itrs,
        times,
@@ -40,6 +42,7 @@ OptimTrace(x) = OptimTrace(x, x->nothing)
 # ~~~ Trace interface ~~~
 Base.IndexStyle(::Type{<:OptimTrace}) = IndexLinear()
 Base.length(t::OptimTrace) = length(t.itrs)
+Base.lastindex(t::OptimTrace) = length(t)
 
 @inline function Base.getindex(t::OptimTrace, i::Int)
     @boundscheck checkbounds(t.itrs, i)
@@ -98,7 +101,7 @@ end
 
 function _get_start_itr(trace)
     try
-        return iters(trace)[end]
+        return itrs(trace)[end]
     catch
         return 0 
     end

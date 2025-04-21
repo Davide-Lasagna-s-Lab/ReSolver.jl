@@ -1,13 +1,12 @@
 # Optimisation options
 
-@with_kw struct OptOptions{OPTIMIZER<:Optim.AbstractOptimizer, S, CB}
+@with_kw struct OptOptions{OPTIMIZER<:Optim.AbstractOptimizer, CB}
     # general options
     maxiter::Int = typemax(Int)                                      # maximum number of iterations
     alg::OPTIMIZER = LBFGS()                                         # optimisation algorithm choice
     res_tol::Float64 = 1e-12                                         # residual tolerance used to determine if the solution is converged
     time_limit::Float64 = NaN                                        # time limit on the optimisation (in seconds)
     callback::CB = x->false; @assert !isempty(methods(callback))     # user specified callback function to be executed every iteration
-    package::Symbol = :Optim; @assert package in (:Optim, :OptimKit) # optimisation package to use
 
     # optim.jl options
     g_tol::Float64 = 0.0                                             # gradient tolerance
@@ -37,4 +36,4 @@ genOptimOptions(opts, trace) = Optim.Options(g_tol=opts.g_tol,
                                              show_every=1,
                                              time_limit=opts.time_limit,
                                              store_trace=false,
-                                             callback=Callback(trace, opts))
+                                             callback=CallbackCache(trace, opts))
