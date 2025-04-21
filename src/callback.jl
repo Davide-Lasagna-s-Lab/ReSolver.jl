@@ -2,9 +2,9 @@
 # extending the default behaviour of Optim.jl.
 
 struct CallbackCache{T, O}
-    trace::T
-    opts::O
-    start_itr::Int
+         trace::T
+          opts::O
+     start_itr::Int
     start_time::Float64
 
     function CallbackCache(trace::T, opts::O) where {T, O}
@@ -14,15 +14,19 @@ end
 
 function (f::CallbackCache)(state)
     # unpack current state
-    curr_itr = state.iteration
-    curr_time = state.metadata["time"]
-    curr_step = state.metadata["Current step size"]
+    curr_itr      = state.iteration
+    curr_time     = state.metadata["time"]
+    curr_step     = state.metadata["Current step size"]
     curr_residual = state.value
-    curr_g_norm = state.g_norm
-    curr_x = state.metadata["x"]
+    curr_g_norm   = state.g_norm
+    curr_optvec   = state.metadata["x"]
+
+    # unpack current optimisation vector
+    curr_x = curr_optvec.x
+    curr_T = curr_optvec.T
 
     # update trace
-    push!(f.trace, curr_x, curr_itr, curr_time, curr_step, curr_residual, curr_g_norm, f.start_itr, f.start_time)
+    push!(f.trace, curr_x, curr_itr, curr_time, curr_step, curr_residual, curr_g_norm, curr_T, f.start_itr, f.start_time)
 
     # print state
     if f.opts.verbose && curr_itr % f.opts.n_it_print == 0
