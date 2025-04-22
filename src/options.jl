@@ -2,7 +2,7 @@
 
 export OptOptions
 
-@with_kw struct OptOptions{OPTIMIZER<:Optim.AbstractOptimizer, CB}
+@with_kw struct OptOptions{OPTIMIZER<:AbstractOptimizer, CB}
     # general options
     maxiter::Int = typemax(Int)                                      # maximum number of iterations
     alg::OPTIMIZER = LBFGS()                                         # optimisation algorithm choice
@@ -25,17 +25,17 @@ export OptOptions
 end
 
 # convert to options for Optim.jl
-genOptimOptions(opts, trace) = Optim.Options(g_tol=opts.g_tol,
-                                             x_tol=opts.x_tol,
-                                             f_tol=opts.f_tol,
-                                             f_calls_limit=opts.f_calls_limit,
-                                             g_calls_limit=opts.g_calls_limit,
-                                             trace_simplex=opts.trace_simplex,
-                                             allow_f_increases=opts.allow_f_increases,
-                                             iterations=opts.maxiter,
-                                             show_trace=false,
-                                             extended_trace=true,
-                                             show_every=1,
-                                             time_limit=opts.time_limit,
-                                             store_trace=false,
-                                             callback=CallbackCache(trace, opts))
+genOptimOptions(opts, trace) = Options(g_tol=opts.g_tol,
+                                       x_abstol=opts.x_tol,
+                                       f_abstol=opts.f_tol,
+                                       f_calls_limit=opts.f_calls_limit,
+                                       g_calls_limit=opts.g_calls_limit,
+                                       trace_simplex=false,
+                                       allow_f_increases=opts.allow_f_increases,
+                                       iterations=opts.maxiter,
+                                       show_trace=false,
+                                       extended_trace=true,
+                                       show_every=1,
+                                       time_limit=opts.time_limit,
+                                       store_trace=false,
+                                       callback=CallbackCache(trace, opts))

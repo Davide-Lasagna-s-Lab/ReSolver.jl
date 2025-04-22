@@ -36,6 +36,16 @@ Base.copy(x::OptVector)                         = OptVector(copy(x.x), x.T)
     end
     return val
 end
+function Base.setindex!(x::OptVector{X, N}, val, i::Int) where {X, N}
+    if i < N
+        @boundscheck checkbounds(x.x, i)
+        @inbounds x.x[i] = val
+    elseif i == N
+        x.T = val
+    else
+        throw(BoundsError(x, i))
+    end
+end
 
 
 # ~~~ broadcasting ~~~

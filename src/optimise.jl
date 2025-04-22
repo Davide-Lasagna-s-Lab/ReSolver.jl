@@ -2,6 +2,9 @@
 
 export optimise!
 
+# TODO: the docs
+# TODO: interface with OptimKit.jl
+
 # ~~~ Assumed interface for type X ~~~
 #  - eltype(::X) -> Type
 #  - similar(::X) -> X
@@ -21,7 +24,9 @@ function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::Op
         if G === nothing
             return RdR!(x.x, x.T)
         else
-            return RdR!(G, x.x, x.T)
+            R, _, dRdT = RdR!(G.x, x.x, x.T)
+            G.T = dRdT
+            return R
         end
     end
 
@@ -31,5 +36,11 @@ function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::Op
     end
 
     # perform optimisation using Optim.jl
-    return optimize(Optim.only_fg(fg!), OptVector(x, T), genOptimOptions(opts))
+    res = optimize(only_fg!(fg!), OptVector(x, T), opts.alg, genOptimOptions(opts, trace))
+
+    # unpack optimisation results
+    x .= minimizer(res).x
+    T  = minimizer(res).T
+
+    return x, T, Dict("optim_output"=>res)
 end

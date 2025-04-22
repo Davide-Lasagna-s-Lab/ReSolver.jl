@@ -1,4 +1,4 @@
-@testset "Residuals interface       " begin
+@testset "Residual interface        " begin
     # test construction
     RdR! = Residual([0.0],
                     (dxdt, x)->(dxdt[1] = 0.0; dxdt),
