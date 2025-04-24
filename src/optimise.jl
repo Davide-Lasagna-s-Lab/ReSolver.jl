@@ -7,7 +7,7 @@ export optimise!
 
 # ~~~ Assumed interface for type X ~~~
 #  - eltype(::X) -> Type
-#  - similar(::X) -> X
+#  - similar(::X, ::Type{T}) -> X
 #  - dot(::X, ::X) -> Number
 #  - norm(::X) -> Non-negative Real
 #  - broadcasting between variables of type X

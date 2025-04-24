@@ -23,4 +23,10 @@ include("options.jl")
 include("callback.jl")
 include("optimise.jl")
 
+
+# define a few small test systems for demonstration purposes
+export ToySystems
+
+include("ToySystems/ToySystems.jl")
+
 end

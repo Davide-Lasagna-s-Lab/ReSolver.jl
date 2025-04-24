@@ -58,7 +58,7 @@ find_opvec(bc::Base.Broadcast.Broadcasted) = find_opvec(bc.args)
 find_opvec(args::Tuple)                    = find_opvec(find_opvec(args[1]), Base.tail(args))
 find_opvec(x)                              = x
 find_opvec(::Tuple{})                      = nothing
-find_opvec(x::OptVector, rest)           = x
+find_opvec(x::OptVector, rest)             = x
 find_opvec(::Any, rest)                    = find_opvec(rest)
 
 @inline function Base.copyto!(dest::OptVector, bc::Base.Broadcast.Broadcasted{OptVectorStyle})
@@ -74,7 +74,7 @@ find_opvec(::Any, rest)                    = find_opvec(rest)
     return dest
 end
 
-_get_x(x::OptVector) = x.x
+_get_x(x::OptVector)   = x.x
 _get_x(x)              = x
-_get_T(x::OptVector) = x.T
+_get_T(x::OptVector)   = x.T
 _get_T(x)              = x
