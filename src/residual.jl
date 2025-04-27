@@ -45,7 +45,7 @@ end
 """
 A second call
 """
-function (f::Residual{X})(dRdx::X, x::X, T::Real) where {X}
+function (f::Residual{X})(dRdx::X, x::X, T::Real, T_relax::Float64=1.0) where {X}
     # aliases
     dxds  = f.cache[1]
     r     = f.cache[3]
@@ -62,7 +62,7 @@ function (f::Residual{X})(dRdx::X, x::X, T::Real) where {X}
     dRdx .= f.adj!(M_x_r, x, r) .- ω.*f.dds!(drds, r)
 
     # compute frequency gradient
-    dRdT = (ω/T)*dot(dxds, r)
+    dRdT = T_relax*(ω/T)*dot(dxds, r)
 
     return R, dRdx, dRdT
 end

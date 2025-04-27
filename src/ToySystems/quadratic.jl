@@ -1,7 +1,7 @@
 # Simple 1-dimensional dynamical system with a single fixed point.
 
 
-# ~~~ struct definition ~~~
+# ~~~ state definition ~~~
 mutable struct QuadraticState <: AbstractVector{Float64}
     x::Float64
 end
@@ -22,6 +22,6 @@ norm(x::QuadraticState)                   = sqrt(dot(x, x))
 
 
 # ~~~ operators ~~~
-dds!(dxdt::Q, x::Q) where {Q<:QuadraticState}    = (dxdt.x = 0; dxdt)
+dds!(dxds::Q, ::Q) where {Q<:QuadraticState}     = (dxds.x = 0; dxds)
 rhs!(F::Q, x::Q) where {Q<:QuadraticState}       = (F.x = x.x^2; F)
-adj!(G::Q, x::Q, y::Q) where {Q<:QuadraticState} = (G.x = -2*x.x*y.x; G)
+adj!(G::Q, x::Q, r::Q) where {Q<:QuadraticState} = (G.x = -2*x.x*r.x; G)

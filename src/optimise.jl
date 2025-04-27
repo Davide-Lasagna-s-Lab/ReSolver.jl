@@ -4,6 +4,8 @@ export optimise!
 
 # TODO: the docs
 # TODO: interface with OptimKit.jl
+# TODO: finish toy systems
+# TODO: optional residual constructor with no time derivative
 
 # ~~~ Assumed interface for type X ~~~
 #  - eltype(::X) -> Type
@@ -24,7 +26,7 @@ function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::Op
         if G === nothing
             return RdR!(x.x, x.T)
         else
-            R, _, dRdT = RdR!(G.x, x.x, x.T)
+            R, _, dRdT = RdR!(G.x, x.x, x.T, opts.period_relax)
             G.T = dRdT
             return R
         end
