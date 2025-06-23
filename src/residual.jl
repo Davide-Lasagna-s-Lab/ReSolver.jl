@@ -59,10 +59,10 @@ function (f::Residual{X})(dRdx::X, x::X, T::Real, T_relax::Float64=1.0) where {X
     R = f(x, T)
 
     # compute field gradient
-    dRdx .= f.adj!(M_x_r, x, r) .- ω.*f.dds!(drds, r)
+    dRdx .= .-ω.*f.dds!(drds, r) .- f.adj!(M_x_r, x, r)
 
     # compute frequency gradient
-    dRdT = T_relax*(ω/T)*dot(dxds, r)
+    dRdT = -T_relax*(ω/T)*dot(dxds, r)
 
     return R, dRdx, dRdT
 end

@@ -17,11 +17,11 @@ Base.setindex!(x::QuadraticState, v, i::Int)        = 0 < i < 2 ? x.x = v : thro
 
 
 # ~~~ linear algebra ~~~
-dot(x::QuadraticState, y::QuadraticState) = x.x*y.x
-norm(x::QuadraticState)                   = sqrt(dot(x, x))
+LinearAlgebra.dot(x::QuadraticState, y::QuadraticState) = x.x*y.x
+LinearAlgebra.norm(x::QuadraticState)                   = sqrt(dot(x, x))
 
 
 # ~~~ operators ~~~
 dds!(dxds::Q, ::Q) where {Q<:QuadraticState}     = (dxds.x = 0; dxds)
 rhs!(F::Q, x::Q) where {Q<:QuadraticState}       = (F.x = x.x^2; F)
-adj!(G::Q, x::Q, r::Q) where {Q<:QuadraticState} = (G.x = -2*x.x*r.x; G)
+adj!(G::Q, x::Q, r::Q) where {Q<:QuadraticState} = (G.x = 2*x.x*r.x; G)

@@ -4,7 +4,7 @@
     RdR! = Residual(x0,
                     (dxdt, x)->(dxdt[1] = 0.0; dxdt),
                     (F, x)->(F[1] = x[1]^2; F),
-                    (G, x, y)->(G[1] = -2*x[1]*y[1]))
+                    (G, x, y)->(G[1] = 2*x[1]*y[1]))
     t = OptTrace(x0)
     opts = OptOptions(verbose=false,
                       maxiter=1000,

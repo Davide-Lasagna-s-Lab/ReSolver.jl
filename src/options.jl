@@ -26,6 +26,7 @@ export OptOptions
 end
 
 # convert to options for Optim.jl
+# TODO: update options for complete set
 genOptimOptions(opts, trace) = Options(g_tol=opts.g_tol,
                                        x_abstol=opts.x_tol,
                                        f_abstol=opts.f_tol,

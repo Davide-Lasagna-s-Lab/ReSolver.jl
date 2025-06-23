@@ -24,6 +24,8 @@ include("callback.jl")
 include("optimise.jl")
 
 
+# TODO: change test dependency paradigm
+
 # define a few small test systems for demonstration purposes
 export ToySystems
 

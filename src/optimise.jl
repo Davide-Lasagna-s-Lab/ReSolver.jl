@@ -32,17 +32,20 @@ function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::Op
         end
     end
 
+    # construct trace if one isn't provided
+    t = isnothing(trace) ? OptTrace(x) : trace
+
     # print header
     if opts.verbose
-        print_header(opts.io, trace)
+        print_header(opts.io, t)
     end
 
     # perform optimisation using Optim.jl
-    res = optimize(only_fg!(fg!), OptVector(x, T), opts.alg, genOptimOptions(opts, trace))
+    res = optimize(only_fg!(fg!), OptVector(x, T), opts.alg, genOptimOptions(opts, t))
 
     # unpack optimisation results
     x .= minimizer(res).x
     T  = minimizer(res).T
 
-    return x, T, Dict("optim_output"=>res)
+    return x, T, Dict("optim_output"=>res, "trace"=>t)
 end
