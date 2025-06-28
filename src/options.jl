@@ -9,7 +9,6 @@ export OptOptions
     res_tol::Float64 = 1e-12                                         # residual tolerance used to determine if the solution is converged
     time_limit::Float64 = NaN                                        # time limit on the optimisation (in seconds)
     callback::CB = x->false; @assert !isempty(methods(callback))     # user specified callback function to be executed every iteration
-    period_relax::Float64 = 1                                        # relaxation factor to decrease the effect of period optimisation
 
     # optim.jl options
     g_tol::Float64 = 0.0                                             # gradient tolerance

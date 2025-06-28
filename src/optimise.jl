@@ -4,8 +4,8 @@ export optimise!
 
 # TODO: the docs
 # TODO: interface with OptimKit.jl
-# TODO: finish toy systems
 # TODO: optional residual constructor with no time derivative
+# TODO: default finite difference gradient operator
 
 # ~~~ Assumed interface for type X ~~~
 #  - eltype(::X) -> Type
@@ -20,13 +20,13 @@ export optimise!
 """
 Some docs
 """
-function optimise!(x::X, T::Real, RdR!::Residual{X}, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptTrace}}
+function optimise!(x::X, T::Real, RdR!, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptTrace}}
     # define functions to compute residuals with Optim.jl
     function fg!(F, G, x::OptVector)
         if G === nothing
             return RdR!(x.x, x.T)
         else
-            R, _, dRdT = RdR!(G.x, x.x, x.T, opts.period_relax)
+            R, _, dRdT = RdR!(G.x, x.x, x.T)
             G.T = dRdT
             return R
         end

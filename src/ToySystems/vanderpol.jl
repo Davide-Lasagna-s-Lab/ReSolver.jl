@@ -11,7 +11,7 @@ struct VDPState{N} <: AbstractMatrix{ComplexF64}
         new{N}(x, v)
     end
 end
-VDPState(n::Int) = VDPState{n}(Vector{ComplexF64}(undef, (n >> 1) + 1), Vector{ComplexF64}(undef, (n >> 1) + 1))
+VDPState(n::Int) = VDPState{n}([Vector{ComplexF64}(undef, (n >> 1) + 1) for _ in 1:2]...)
 
 
 # ~~~ transforms ~~~
@@ -44,7 +44,7 @@ end
 # ~~~ array interface ~~~
 Base.IndexStyle(::Type{<:VDPState})                 = Base.IndexLinear()
 Base.eltype(::VDPState)                             = ComplexF64
-Base.size(x::VDPState{N}) where {N}                 = ((N >> 1) + 1, 2)
+Base.size(::VDPState{N}) where {N}                  = ((N >> 1) + 1, 2)
 Base.similar(::VDPState{N}, ::Type{T}) where {N, T} = VDPState(N)
 
 function Base.getindex(x::VDPState{N}, i::Int) where {N}
@@ -91,13 +91,13 @@ function LinearAlgebra.dot(x::VDPState{N}, y::VDPState{N}) where {N}
 
     # loop over frequencies adding to sum
     for n in 2:((N >> 1) + 1)
-        out += real(dot(x.x[n], y.x[n]))
-        out += real(dot(x.v[n], y.v[n]))
+        out += 2*real(dot(x.x[n], y.x[n]))
+        out += 2*real(dot(x.v[n], y.v[n]))
     end
 
     # add mean component
-    out += 0.5*real(dot(x.x[1], y.x[1]))
-    out += 0.5*real(dot(x.v[1], y.v[1]))
+    out += real(dot(x.x[1], y.x[1]))
+    out += real(dot(x.v[1], y.v[1]))
 
     return out
 end

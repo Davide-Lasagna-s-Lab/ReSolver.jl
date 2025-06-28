@@ -9,19 +9,22 @@ export Residual
 """
 Some type
 """
-struct Residual{X, DT, NS, ADJ}
+struct Residual{X, DT, NS, ADJ, F}
     cache::NTuple{5, X}
      dds!::DT
      rhs!::NS
      adj!::ADJ
+     grad_scale!::F
 
     Residual(x::X, 
              dds!::DT,
              rhs!::NS,
-             adj!::ADJ) where {X, DT, NS, ADJ} = new{X, DT, NS, ADJ}(ntuple(i->similar(x), 5),
-                                                                     dds!,
-                                                                     rhs!,
-                                                                     adj!)
+             adj!::ADJ,
+             grad_scale!::F=dRdx->dRdx) where {X, DT, NS, ADJ, F} = new{X, DT, NS, ADJ, F}(ntuple(i->similar(x), 5),
+                                                                                           dds!,
+                                                                                           rhs!,
+                                                                                           adj!,
+                                                                                           grad_scale!)
 end
 
 """
@@ -45,7 +48,7 @@ end
 """
 A second call
 """
-function (f::Residual{X})(dRdx::X, x::X, T::Real, T_relax::Float64=1.0) where {X}
+function (f::Residual{X})(dRdx::X, x::X, T::Real) where {X}
     # aliases
     dxds  = f.cache[1]
     r     = f.cache[3]
@@ -61,8 +64,11 @@ function (f::Residual{X})(dRdx::X, x::X, T::Real, T_relax::Float64=1.0) where {X
     # compute field gradient
     dRdx .= .-ω.*f.dds!(drds, r) .- f.adj!(M_x_r, x, r)
 
+    # scaling of gradient required for real FFTs
+    f.grad_scale!(dRdx)
+
     # compute frequency gradient
-    dRdT = -T_relax*(ω/T)*dot(dxds, r)
+    dRdT = -(ω/T)*dot(dxds, r)
 
     return R, dRdx, dRdT
 end
