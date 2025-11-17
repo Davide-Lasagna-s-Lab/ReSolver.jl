@@ -13,7 +13,27 @@
 #  - adj!(::X, ::X, ::X) -> X
 
 """
-Some docs
+    optimise!(x::X,
+              T::Real,
+              RdR!,
+              trace::Union{Nothing, OptTrace}=nothing,
+              opts::OptOptions=OptOptions())->(x, T, output)
+
+Optimise an input `x` and period `T` for the goal of finding a periodic solution,
+modifying `x` in-place in process.
+
+# Arguments
+- `x::X`: initial state-space loop to be optimised
+- `T::Real`: initial period for the state-space loop to be optimised
+- `RdR!`: objective functional that computes the residual and gradient, see
+          [`Residual`](@ref) for how to construct this object
+- `trace`: trace object that keeps track of useful variables during optimisation
+- `opts`: optimisation option, see [`OptOptions`](@ref)
+
+# Outputs
+- `x::X`: final state-space loop after being optimised
+- `T::Real`: period for the optimised state-space loop
+- `output`: dictionary containing the optimisation trace and the output from Optim.jl
 """
 function optimise!(x::X, T::Real, RdR!, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptTrace}}
     # define functions to compute residuals with Optim.jl

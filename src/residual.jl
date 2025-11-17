@@ -1,20 +1,18 @@
 # Definition of the interface to define the object that calculates the residuals
 # for a given generic input.
 
-
 # -------------- #
 # norm weighting #
 # -------------- #
 struct UniformWeight end
 LinearAlgebra.mul!(x, ::UniformWeight) = x
-LinearAlgebra.norm(x, ::UniformWeight) = norm(x)
+LinearAlgebra.norm(x, W) = sqrt(dot(x, W, x))
+LinearAlgebra.dot(x, ::UniformWeight, y) = dot(x, y)
+
 
 # ------------------- #
 # residual functional #
 # ------------------- #
-"""
-Some type
-"""
 struct Residual{X, DT, NS, ADJ, F, A}
     cache::NTuple{5, X}
      dds!::DT
@@ -23,6 +21,36 @@ struct Residual{X, DT, NS, ADJ, F, A}
      grad_scale!::F
      norm_weight::A
 
+    """
+        Residual(x::X,
+                 dds!,
+                 rhs!,
+                 adj!;
+                 grad_scale=x->x,
+                 norm_weight=UniformWeight()) -> Residual{X}
+
+    Construct a `Residual` object that can be used to compute the global residual
+    and gradient for an optimisation problem.
+
+    # Arguments
+    - `x::X`: base optimisation variable that the residual takes as input
+    - `dds!`: time derivative operator, `dds!(::X, ::X)`
+    - `rhs!`: nonlinear operator for the dynamical system, `rhs!(::X, ::X)`
+    - `adj!`: adjoint linearised operator for the dynamical system,
+              `adj!(::X, ::X)`
+    - `grad_scale`: scaling operator for the gradient, required if real FFT's
+                    are used to account for the hermitian symmetry, must operate
+                    in place with the signature `grad_scale(::X)`
+    - `norm_weight`: weighting operator for the inner-product space, must be
+                     symmetric and positive definite
+
+    # Interface requirements for `X`
+    - `dot(::X, ::X)->Real`
+    - `similar(::X)->::X`
+    - ::X must be broadcastable
+    - `LinearAlgebra.mul!(::X, norm_weight)->::X`
+    - `LinearAlgebra.dot(::X, norm_weight, ::X)->Real`
+    """
     Residual(x::X, 
           dds!::DT,
           rhs!::NS,
@@ -36,6 +64,10 @@ struct Residual{X, DT, NS, ADJ, F, A}
                                                                                             norm_weight)
 end
 
+"""
+Same as `Residual` constructor except the single object `op!` is used as both
+the nonlinear, `rhs!`, and adjoint linearised, `adj!`, operators.
+"""
 Residual(x,
          dds!,
          op!;
@@ -48,9 +80,6 @@ Residual(x,
                                                  norm_weight=norm_weight)
 
 
-"""
-A call
-"""
 function (f::Residual{X})(x::X, T::Real) where {X}
     # aliases
     dxds = f.cache[1]
@@ -72,9 +101,6 @@ function (f::Residual{X})(x::X, T::Real) where {X}
     return R
 end
 
-"""
-A second call
-"""
 function (f::Residual{X})(dRdx::X, x::X, T::Real) where {X}
     # aliases
     dxds  = f.cache[1]
@@ -96,6 +122,7 @@ function (f::Residual{X})(dRdx::X, x::X, T::Real) where {X}
 
     # compute frequency gradient
     dRdT = -(ω/T)*dot(dxds, r)
+    # the inner-product doesn't need weighting because the residual has already been modified
 
     return R, dRdx, dRdT
 end

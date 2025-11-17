@@ -19,8 +19,6 @@ export GradientDescent, LBFGS, ConjugateGradient, LineSearches
 
 export Residual, OptOptions, optimise!
 
-# TODO: remove trace and just rely on callback
-
 include("residual.jl")
 include("optvector.jl")
 include("trace.jl")
