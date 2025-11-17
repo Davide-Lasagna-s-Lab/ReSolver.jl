@@ -1,6 +1,7 @@
 module ReSolver
 
-import LinearAlgebra: dot, norm
+using LinearAlgebra
+
 import Parameters: @with_kw
 import Printf: @printf
 
@@ -15,6 +16,10 @@ import Optim: LineSearches,
               AbstractOptimizer
 
 export GradientDescent, LBFGS, ConjugateGradient, LineSearches
+
+export Residual, OptOptions, optimise!
+
+# TODO: remove trace and just rely on callback
 
 include("residual.jl")
 include("optvector.jl")

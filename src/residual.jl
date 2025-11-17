@@ -1,30 +1,41 @@
 # Definition of the interface to define the object that calculates the residuals
 # for a given generic input.
 
-export Residual
 
-# ! the base profile should be handled inside the navier-stokes operator call
-# ! any norm scaling should be handled inside the norm method and adjoint operator calls
+# -------------- #
+# norm weighting #
+# -------------- #
+struct UniformWeight end
+LinearAlgebra.mul!(x, ::UniformWeight) = x
+LinearAlgebra.norm(x, ::UniformWeight) = norm(x)
 
+# TODO: add outer constructor for single operator pass
+
+# ------------------- #
+# residual functional #
+# ------------------- #
 """
 Some type
 """
-struct Residual{X, DT, NS, ADJ, F}
+struct Residual{X, DT, NS, ADJ, F, A}
     cache::NTuple{5, X}
      dds!::DT
      rhs!::NS
      adj!::ADJ
      grad_scale!::F
+     norm_weight::A
 
     Residual(x::X, 
-             dds!::DT,
-             rhs!::NS,
-             adj!::ADJ,
-             grad_scale!::F=dRdx->dRdx) where {X, DT, NS, ADJ, F} = new{X, DT, NS, ADJ, F}(ntuple(i->similar(x), 5),
-                                                                                           dds!,
-                                                                                           rhs!,
-                                                                                           adj!,
-                                                                                           grad_scale!)
+          dds!::DT,
+          rhs!::NS,
+          adj!::ADJ;
+    grad_scale::F=dRdx->dRdx,
+   norm_weight::A=UniformWeight()) where {X, DT, NS, ADJ, F, A} = new{X, DT, NS, ADJ, F, A}(ntuple(i->similar(x), 5),
+                                                                                            dds!,
+                                                                                            rhs!,
+                                                                                            adj!,
+                                                                                            grad_scale,
+                                                                                            norm_weight)
 end
 
 """
@@ -42,7 +53,13 @@ function (f::Residual{X})(x::X, T::Real) where {X}
     # compute local residual
     r .= ω.*f.dds!(dxds, x) .- f.rhs!(N_x, x)
 
-    return norm(r)^2/2
+    # pre-compute residual
+    R = norm(r, f.norm_weight)^2/2
+
+    # scale residual according to norm weighting
+    mul!(r, f.norm_weight)
+
+    return R
 end
 
 """

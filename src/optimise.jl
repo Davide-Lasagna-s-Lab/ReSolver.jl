@@ -1,8 +1,5 @@
 # Interface for the optimisation of a type using the residuals as objective.
 
-export optimise!
-
-# TODO: the docs
 # TODO: interface with OptimKit.jl
 # TODO: optional residual constructor with no time derivative
 # TODO: default finite difference gradient operator
