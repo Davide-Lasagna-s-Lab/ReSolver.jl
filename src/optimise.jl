@@ -1,8 +1,6 @@
 # Interface for the optimisation of a type using the residuals as objective.
 
-# TODO: interface with OptimKit.jl
-# TODO: optional residual constructor with no time derivative
-# TODO: default finite difference gradient operator
+# TODO: interface with OptimKit.jl and NLOpt.jl
 
 # ~~~ Assumed interface for type X ~~~
 #  - eltype(::X) -> Type

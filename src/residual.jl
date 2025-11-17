@@ -9,8 +9,6 @@ struct UniformWeight end
 LinearAlgebra.mul!(x, ::UniformWeight) = x
 LinearAlgebra.norm(x, ::UniformWeight) = norm(x)
 
-# TODO: add outer constructor for single operator pass
-
 # ------------------- #
 # residual functional #
 # ------------------- #
@@ -37,6 +35,18 @@ struct Residual{X, DT, NS, ADJ, F, A}
                                                                                             grad_scale,
                                                                                             norm_weight)
 end
+
+Residual(x,
+         dds!,
+         op!;
+         grad_scale=dRdx->dRdx,
+         norm_weight=UniformWeight()) = Residual(x,
+                                                 dds!,
+                                                 op!,
+                                                 op!,
+                                                 grad_scale=grad_scale,
+                                                 norm_weight=norm_weight)
+
 
 """
 A call
