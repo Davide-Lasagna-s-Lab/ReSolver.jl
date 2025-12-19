@@ -14,7 +14,7 @@ LinearAlgebra.dot(x, ::UniformWeight, y) = dot(x, y)
 # residual functional #
 # ------------------- #
 struct Residual{X, DT, NS, ADJ, F, A}
-    cache::NTuple{5, X}
+    cache::NTuple{4, X}
      dds!::DT
      rhs!::NS
      adj!::ADJ
@@ -22,15 +22,12 @@ struct Residual{X, DT, NS, ADJ, F, A}
      norm_weight::A
 
     """
-        Residual(x::X,
-                 dds!,
-                 rhs!,
-                 adj!;
-                 grad_scale=x->x,
-                 norm_weight=UniformWeight()) -> Residual{X}
+        Residual(x::X, dds!, rhs![, adj!];
+                 grad_scale=x->x, norm_weight=UniformWeight()) -> Residual{X}
 
     Construct a `Residual` object that can be used to compute the global residual
-    and gradient for an optimisation problem.
+    and gradient for an optimisation problem. If only `rhs!` is provided then this
+    operator will be used to evaluate the residual.
 
     # Arguments
     - `x::X`: base optimisation variable that the residual takes as input
@@ -56,7 +53,7 @@ struct Residual{X, DT, NS, ADJ, F, A}
           rhs!::NS,
           adj!::ADJ;
     grad_scale::F=dRdx->dRdx,
-   norm_weight::A=UniformWeight()) where {X, DT, NS, ADJ, F, A} = new{X, DT, NS, ADJ, F, A}(ntuple(i->similar(x), 5),
+   norm_weight::A=UniformWeight()) where {X, DT, NS, ADJ, F, A} = new{X, DT, NS, ADJ, F, A}(ntuple(i->similar(x), 4),
                                                                                             dds!,
                                                                                             rhs!,
                                                                                             adj!,
@@ -104,9 +101,9 @@ end
 function (f::Residual{X})(dRdx::X, x::X, T::Real) where {X}
     # aliases
     dxds  = f.cache[1]
+    M_x_r = f.cache[2]
     r     = f.cache[3]
     drds  = f.cache[4]
-    M_x_r = f.cache[5]
 
     # compute fundamental frequency
     ω = 2π/T
