@@ -16,7 +16,7 @@
     optimise!(x::X,
               T::Real,
               RdR!,
-              trace::Union{Nothing, OptTrace}=nothing,
+              state::OptState=OptState(x),
               opts::OptOptions=OptOptions())->(x, T, output)
 
 Optimise an input `x` and period `T` for the goal of finding a periodic solution,
@@ -27,7 +27,7 @@ modifying `x` in-place in process.
 - `T::Real`: initial period for the state-space loop to be optimised
 - `RdR!`: objective functional that computes the residual and gradient, see
           [`Residual`](@ref) for how to construct this object
-- `trace`: trace object that keeps track of useful variables during optimisation
+- `state`: state object that keeps track of useful variables during optimisation
 - `opts`: optimisation option, see [`OptOptions`](@ref)
 
 # Outputs
@@ -35,7 +35,7 @@ modifying `x` in-place in process.
 - `T::Real`: period for the optimised state-space loop
 - `output`: dictionary containing the optimisation trace and the output from Optim.jl
 """
-function optimise!(x::X, T::Real, RdR!, trace::TR=nothing; opts::OptOptions=OptOptions()) where {X, TR<:Union{Nothing, OptTrace}}
+function optimise!(x::X, T::Real, RdR!, state::OptState=OptState(x); opts::OptOptions=OptOptions()) where {X}
     # define functions to compute residuals with Optim.jl
     function fg!(F, G, x::OptVector)
         if G === nothing
@@ -47,20 +47,17 @@ function optimise!(x::X, T::Real, RdR!, trace::TR=nothing; opts::OptOptions=OptO
         end
     end
 
-    # construct trace if one isn't provided
-    t = isnothing(trace) ? OptTrace(x) : trace
-
     # print header
     if opts.verbose
-        print_header(opts.io, t)
+        print_header(opts.io)
     end
 
     # perform optimisation using Optim.jl
-    res = optimize(only_fg!(fg!), OptVector(x, T), opts.alg, genOptimOptions(opts, t))
+    res = optimize(only_fg!(fg!), OptVector(x, T), opts.alg, genOptimOptions(opts, state))
 
     # unpack optimisation results
     x .= minimizer(res).x
     T  = minimizer(res).T
 
-    return x, T, Dict("optim_output"=>res, "trace"=>t)
+    return x, T, Dict("optim_output"=>res, "final_state"=>state)
 end

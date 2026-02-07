@@ -21,7 +21,7 @@ export Residual, OptOptions, optimise!
 
 include("residual.jl")
 include("optvector.jl")
-include("trace.jl")
+include("state.jl")
 include("options.jl")
 include("callback.jl")
 include("optimise.jl")

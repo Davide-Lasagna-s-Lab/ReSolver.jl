@@ -24,7 +24,7 @@ end
 
 # convert to options for Optim.jl
 # TODO: update options for complete set
-genOptimOptions(opts, trace) = Options(g_tol=opts.g_tol,
+genOptimOptions(opts, state) = Options(g_tol=opts.g_tol,
                                        x_abstol=opts.x_tol,
                                        f_abstol=opts.f_tol,
                                        f_calls_limit=opts.f_calls_limit,
@@ -37,4 +37,4 @@ genOptimOptions(opts, trace) = Options(g_tol=opts.g_tol,
                                        show_every=1,
                                        time_limit=opts.time_limit,
                                        store_trace=false,
-                                       callback=CallbackCache(trace, opts))
+                                       callback=CallbackCache(state, opts))
