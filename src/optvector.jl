@@ -9,12 +9,11 @@
 # symmetries similar to MVector in NKSearch.jl.
 
 # ~~~ Wrapper vector struct for optimisation ~~~
-# TODO: change type of T to a Number
-mutable struct OptVector{X, N} <: AbstractVector{Float64}
+mutable struct OptVector{X, N, TX} <: AbstractVector{Float64}
     const x::X
-          T::Float64
+          T::TX
     
-    OptVector(x::X, T::Real) where {X} = new{X, length(x) + 1}(x, convert(Float64, T))
+    OptVector(x::X, T::Real) where {X} = new{X, length(x) + 1, real(eltype(x))}(x, convert(real(eltype(x)), T))
 end
 
 
@@ -22,10 +21,9 @@ end
 Base.IndexStyle(::Type{<:OptVector})                      = IndexLinear()
 Base.size(::OptVector{X, N}) where {X, N}                 = (N,)
 Base.eltype(x::OptVector)                                 = eltype(x.x)
-Base.similar(x::OptVector, ::Type{T}=eltype(x)) where {T} = OptVector(similar(x.x, T), 0.0)
+Base.similar(x::OptVector, ::Type{T}=eltype(x)) where {T} = OptVector(similar(x.x, T), real(T)(0.0))
 Base.copy(x::OptVector)                                   = OptVector(copy(x.x), x.T)
 
-# storing "N" as parametric type allows compiler to optimise away the if-else blocks through constant propagation
 @inline function Base.getindex(x::OptVector{X, N}, i::Int) where {X, N}
     if i < N
         @boundscheck checkbounds(x.x, i)
