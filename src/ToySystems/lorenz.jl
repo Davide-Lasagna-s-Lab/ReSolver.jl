@@ -79,7 +79,7 @@ function Base.setindex!(u::LorenzState{N}, val, i::Int) where {N}
 end
 
 
-# # ~~~ broadcasting ~~~
+# ~~~ broadcasting ~~~
 const LorenzStateStyle = Base.Broadcast.ArrayStyle{LorenzState}
 Base.BroadcastStyle(::Type{<:LorenzState}) = LorenzStateStyle()
 
@@ -89,7 +89,7 @@ Base.similar(bc::Base.Broadcast.Broadcasted{LorenzStateStyle}, ::Type{T}) where 
 find_state(u::LorenzState, rest) = u
 
 
-# # ~~~ linear algebra ~~~
+# ~~~ linear algebra ~~~
 function LinearAlgebra.dot(u::LorenzState{N}, v::LorenzState{N}) where {N}
     # output
     out = 0.0
