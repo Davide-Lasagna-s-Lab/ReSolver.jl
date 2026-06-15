@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" role="img" aria-labelledby="title desc">
+  <title id="title">ReSolver.jl logo</title>
+  <desc id="desc">A swirling recirculation cell of nested closed streamlines in Julia colors, representing a periodic orbit of a fluid flow, beside the ReSolver.jl wordmark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f2f5f8"/>
+    </linearGradient>
+    <filter id="panel-shadow" x="-12%" y="-25%" width="124%" height="150%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#172033" flood-opacity="0.14"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#172033" flood-opacity="0.10"/>
+    </filter>
+    <marker id="flow-arrow" viewBox="0 0 12 10" refX="6" refY="5" markerWidth="6" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0 L12 5 L0 10 Z" fill="#242936"/>
+    </marker>
+  </defs>
+
+  <!-- Main panel -->
+  <rect x="24" y="24" width="912" height="252" rx="24" fill="url(#bg)" filter="url(#panel-shadow)"/>
+
+  <!-- Left illustration: a recirculating fluid cell == a periodic orbit -->
+  <g transform="translate(70 58)" filter="url(#soft)">
+
+    <!-- Background streamlines flowing past the cell -->
+    <g fill="none" stroke-linecap="round" opacity="0.45">
+      <path d="M-12 26 C 48 6, 104 6, 150 26 S 248 46, 248 26"
+            stroke="#9558b2" stroke-width="3.5"/>
+      <path d="M-12 158 C 48 178, 104 178, 150 158 S 248 138, 248 158"
+            stroke="#4063d8" stroke-width="3.5"/>
+    </g>
+
+    <!-- Nested closed streamlines of the recirculation cell (rotated swirl) -->
+    <g transform="rotate(-18 112 92)" fill="none" stroke-linecap="round">
+      <ellipse cx="112" cy="92" rx="84" ry="54" stroke="#4063d8" stroke-width="6"/>
+      <ellipse cx="112" cy="92" rx="60" ry="38" stroke="#9558b2" stroke-width="6"/>
+      <ellipse cx="112" cy="92" rx="37" ry="23" stroke="#389826" stroke-width="6"/>
+      <ellipse cx="112" cy="92" rx="16" ry="10" stroke="#cb3c33" stroke-width="6"/>
+    </g>
+
+    <!-- Core (fixed point at the heart of the orbit) -->
+    <circle cx="112" cy="92" r="6" fill="#cb3c33"/>
+
+    <!-- Circulation arrow: closes the loop, marks the orbit direction -->
+    <path d="M171 44 A 78 64 0 0 1 196 104"
+          fill="none" stroke="#242936" stroke-width="5"
+          stroke-linecap="round" marker-end="url(#flow-arrow)"/>
+  </g>
+
+  <!-- Wordmark and subtitle -->
+  <g transform="translate(336 96)">
+    <text x="0" y="48" font-family="Inter, Avenir, Helvetica, Arial, sans-serif"
+          font-size="58" font-weight="820" fill="#222734" letter-spacing="0">ReSolver.jl</text>
+    <text x="2" y="90" font-family="Inter, Avenir, Helvetica, Arial, sans-serif"
+          font-size="21" font-weight="700" fill="#4f596b" letter-spacing="0">Periodic orbits by space-time residual minimisation,</text>
+    <text x="2" y="118" font-family="Inter, Avenir, Helvetica, Arial, sans-serif"
+          font-size="21" font-weight="700" fill="#4f596b" letter-spacing="0">with adjoint-computed gradients.</text>
+  </g>
+</svg>
