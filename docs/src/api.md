@@ -27,11 +27,12 @@ Trace
 ```@docs
 ReSolver.precondition!
 ReSolver.precondition_adjoint!
+ReSolver.relinearise!
 ```
 
 ## Residual, gradient and Jacobian
 
-These functions are used by the methods and are not exported; they are useful to check a system.
+These functions are used by the methods and are not exported. They are useful to check a system.
 
 ```@docs
 ReSolver.residual!
