@@ -1,21 +1,21 @@
 # A periodic orbit of the Kuramoto–Sivashinsky equation on L = 39 in the subspace of odd fields,
 # u(-x) = -u(x), invariant under the reflection u(x) → -u(-x) of the equation.
 #
-#     julia --project=examples examples/kuramoto_sivashinsky/symmetric.jl
+#     julia --project=examples examples/kuramoto_sivashinsky/scripts/symmetric.jl
 #
-# writes symmetric.png in the folder figures/ next to this file, the search in the odd subspace. In
+# writes symmetric.png in docs/src/assets/kuramoto_sivashinsky/, the search in the odd subspace. In
 # the odd subspace translations are not allowed, so the orbits are periodic, without drift, and the
 # search restricts itself to the subspace with the keyword `project` of System and the projection
-# odd! of ks.jl. The initial guess is a near-recurrence of a chaotic trajectory integrated in the
-# subspace. For comparison, the same search is repeated in the full space, as a periodic orbit
-# without the projection, and as a relative periodic orbit with the drift speed as an unknown; their
-# costs are printed.
+# odd! of ks.jl, whose fields have zero mean. The initial guess is a near-recurrence of a chaotic
+# trajectory integrated in the subspace. For comparison, the same search is repeated in the full
+# space of fields of zero mean, with the projection demean!, as a periodic orbit and as a relative
+# periodic orbit with the drift speed as an unknown; their costs are printed.
 
 using Random
 using Printf
 using CairoMakie
 
-include("ks.jl")
+include("../ks.jl")
 
 Random.seed!(2)
 
@@ -39,11 +39,11 @@ a₀ = odd!(initial_orbit(U, g, Δt, i, m, 0.0; drift=false).a)
 
 @printf "initial guess: recurrence error %.3f, T = %.2f\n" e m * Δt
 
-# ---- three searches from the same guess ----
+# ---- three searches from the same guess; odd! removes the mean too, demean! only the mean ----
 ops   = (KSNonlinear(g), KSLinearised(g), KSLinearised(g; adjoint=true), dds!)
 cases = (("odd subspace, projected", Orbit(copy(a₀), [ρ₀]), (), odd!),
-         ("full space, no drift", Orbit(copy(a₀), [ρ₀]), (), identity),
-         ("full space, drift", Orbit(copy(a₀), [ρ₀, 0.0]), (ddx!,), identity))
+         ("full space, no drift", Orbit(copy(a₀), [ρ₀]), (), demean!),
+         ("full space, drift", Orbit(copy(a₀), [ρ₀, 0.0]), (ddx!,), demean!))
 
 # distance of a field from the odd subspace, relative
 asymmetry(a) = norm(a .- odd!(copy(a))) / norm(a)
@@ -130,4 +130,4 @@ ylims!(ax, 1e-4, 2)
 logticks!(ax, 1e-4, 1; axis=:y)
 Colorbar(fig[2, 3]; colormap=:viridis, limits=(1, niter), label="Newton iteration")
 
-save(joinpath(@__DIR__, "figures", "symmetric.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "symmetric.png"), fig)

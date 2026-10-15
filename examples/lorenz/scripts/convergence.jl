@@ -1,9 +1,9 @@
 # Convergence of the Newton–Krylov hookstep on the shortest periodic orbit of the Lorenz system, at
 # increasing resolution in time, without and with the preconditioner.
 #
-#     julia --project=examples examples/lorenz/convergence.jl
+#     julia --project=examples examples/lorenz/scripts/convergence.jl
 #
-# writes convergence.png and tolerance.png in the folder figures/ next to this file. The orbit is
+# writes convergence.png and tolerance.png in docs/src/assets/lorenz/. The orbit is
 # first converged with K = 20 modes; it is then resampled to K = 10, 20, 40 and 80 modes, its
 # log-frequency perturbed by 0.01 and its field by 1% on the lowest modes, so that every search
 # starts close to the solution with a residual spread over many directions.
@@ -19,7 +19,7 @@ using Printf
 using Random
 using CairoMakie
 
-include("lorenz.jl")
+include("../lorenz.jl")
 
 
 # ============================================================================ #
@@ -195,7 +195,7 @@ Legend(fig[3, 1:3],
        [["K = $K" for K in Ks]; collect(keys(style))];
        orientation=:horizontal, framevisible=false)
 
-save(joinpath(@__DIR__, "figures", "convergence.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "lorenz", "convergence.png"), fig)
 
 
 # ============================================================================ #
@@ -240,4 +240,4 @@ Legend(fig[2, 1:3],
        [["K = $K" for K in Ks]; collect(keys(style))];
        orientation=:horizontal, framevisible=false)
 
-save(joinpath(@__DIR__, "figures", "tolerance.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "lorenz", "tolerance.png"), fig)

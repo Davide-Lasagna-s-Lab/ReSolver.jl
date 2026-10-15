@@ -2,7 +2,7 @@
 #
 #     julia --project=examples examples/metric/metric.jl
 #
-# writes metric.png in the folder figures/ next to this file. The residual
+# writes metric.png in docs/src/assets/metric/. The residual
 #
 #     r₁(x, y) = 4 (x - 1/2) + (y - 1)²
 #     r₂(x, y) = (x - 1/2)² + (y - 1)
@@ -183,6 +183,6 @@ colsize!(fig.layout, 2, Aspect(1, 2.0))
 colsize!(fig.layout, 3, Aspect(1, 0.5))
 resize_to_layout!(fig)
 
-save(joinpath(@__DIR__, "figures", "metric.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "docs", "src", "assets", "metric", "metric.png"), fig)
 
 @printf "hookstep on the boundary, plain metric: δp = (%.3f, %.3f); metric of B: δp = (%.3f, %.3f); Newton step: δp = (%.3f, %.3f)\n" (hI .- p₀)... (hB .- p₀)... (newton .- p₀)...

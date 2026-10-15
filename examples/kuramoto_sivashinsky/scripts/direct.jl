@@ -1,7 +1,7 @@
 # Newton's method with a sparse direct solver, finite differences in time, against the matrix-free
 # hookstep, for the orbit of the Kuramoto–Sivashinsky equation of example.jl.
 #
-#     julia --project=examples examples/kuramoto_sivashinsky/direct.jl
+#     julia --project=examples examples/kuramoto_sivashinsky/scripts/direct.jl
 #
 # The direct method is that of VaPOrE.jl and Lasagna (2018, appendix B): the orbit is sampled at M
 # rescaled times, the derivative in time is a centred finite difference of order p = 2, …, 10, the
@@ -18,7 +18,7 @@ using Printf
 using LinearAlgebra
 using SparseArrays
 
-include("ks.jl")
+include("../ks.jl")
 
 Random.seed!(1)
 
@@ -37,7 +37,7 @@ e, i, m, ℓ = recurrence(U, g₀, 0.25, (12, 20))
 x★         = initial_orbit(U, g₀, 0.25, i, m, ℓ)
 
 F₀ = System(KSNonlinear(g₀), KSLinearised(g₀), KSLinearised(g₀; adjoint=true), dds!, x★;
-            linearise!, ddi=(ddx!,), B=KSPreconditioner(x★; kind=:jacobian))
+            linearise!, ddi=(ddx!,), B=KSPreconditioner(x★; kind=:jacobian), project=demean!)
 solve!(x★, F₀, NewtonHookstep(maxiter=50, krylov_dim=150, Δ=0.1, Δmax=10, tol=1e-12, verbose=false))
 
 T★ = 2π / ReSolver.frequency(x★)
@@ -104,7 +104,8 @@ function spectral_matrices(g::KSGrid)
     return D
 end
 
-# KS right-hand side at one time, -½ ∂x(u²) - ∂x²u - ∂x⁴u - mean(u), and its Jacobian
+# KS right-hand side at one time, -½ ∂x(u²) - ∂x²u - ∂x⁴u, and its Jacobian. The assembled matrix
+# has no projection, so the spatial mean at each time is pinned instead, by the term -mean(u)
 ks_rhs(u, D)      = -D[1] * (u .^ 2) ./ 2 .- D[2] * u .- D[3] * u .- sum(u) / length(u)
 ks_jacobian(u, D) = -D[1] * Diagonal(u) .- D[2] .- D[3] .- ones(length(u), length(u)) ./ length(u)
 
@@ -213,7 +214,7 @@ for Nx in (33, 65, 129, 257)
     gx = KSGrid(22, Nx, 49)
     y  = Orbit(resample(x★.a, gx) .+ resample(δ, gx), x★.p .+ 0.01)
     Fy = System(KSNonlinear(gx), KSLinearised(gx), KSLinearised(gx; adjoint=true), dds!, y;
-                linearise!, ddi=(ddx!,), B=KSPreconditioner(y; kind=:jacobian))
+                linearise!, ddi=(ddx!,), B=KSPreconditioner(y; kind=:jacobian), project=demean!)
 
     solve!(copy(y), Fy, NewtonHookstep(maxiter=1, krylov_dim=200, Δ=10, Δmax=100, verbose=false))
     trace = Trace()

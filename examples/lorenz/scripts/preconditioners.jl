@@ -1,8 +1,8 @@
 # Analysis of the preconditioners for the shortest periodic orbit of the Lorenz system.
 #
-#     julia --project=examples examples/lorenz/preconditioners.jl
+#     julia --project=examples examples/lorenz/scripts/preconditioners.jl
 #
-# writes preconditioners.png in the folder figures/ next to this file. Three choices of B are
+# writes preconditioners.png in docs/src/assets/lorenz/. Three choices of B are
 # compared:
 #
 #     none        B = I
@@ -21,7 +21,7 @@ using Printf
 using Random
 using CairoMakie
 
-include("lorenz.jl")
+include("../lorenz.jl")
 
 import ReSolver: jacobian!, residual!, _hookstep
 
@@ -208,4 +208,4 @@ for (j, kind) in enumerate(kinds)
     scatter!(ax, real.(λ), imag.(λ); color=colors[kind], markersize=7)
 end
 
-save(joinpath(@__DIR__, "figures", "preconditioners.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "lorenz", "preconditioners.png"), fig)

@@ -1,9 +1,9 @@
 # L-BFGS against the Newton–Krylov hookstep for the orbit of the Kuramoto–Sivashinsky equation of
 # example.jl.
 #
-#     julia --project=examples examples/kuramoto_sivashinsky/methods.jl
+#     julia --project=examples examples/kuramoto_sivashinsky/scripts/methods.jl
 #
-# writes methods.png, memory.png and hybrid.png in the folder figures/ next to this file.
+# writes methods.png and memory.png in docs/src/assets/kuramoto_sivashinsky/.
 #
 # The cost of the two methods is compared in operator applications, one nonlinear, linearised or
 # adjoint operator each, and in wall-clock time. The first measure is fair only if the three
@@ -17,15 +17,12 @@
 #
 # memory.png: the search from the near-recurrence with a limited number M of stored orbits: M/2
 # curvature pairs for L-BFGS, a Krylov space of M - 1 vectors for the hookstep.
-#
-# hybrid.png: the far start on the base grid, with L-BFGS until ‖r‖ < r_T and the hookstep from
-# there, for a few thresholds r_T, against the two methods alone.
 
 using Random
 using Printf
 using CairoMakie
 
-include("ks.jl")
+include("../ks.jl")
 
 import ReSolver: residual!, gradient!, jacobian!
 
@@ -46,10 +43,11 @@ U  = integrate(U[:, end], g, 0.05, 8000; every=5)
 e, i, m, ℓ = recurrence(U, g, Δt, (12, 20))
 x₀         = initial_orbit(U, g, Δt, i, m, ℓ)
 
-# the system on the grid of the orbit y, with a preconditioner of the given kind
+# the system on the grid of the orbit y, with a preconditioner of the given kind, on the fields of
+# zero mean
 system(y::Orbit, kind::Symbol) =
     System(KSNonlinear(y.a.g), KSLinearised(y.a.g), KSLinearised(y.a.g; adjoint=true), dds!, y;
-           linearise!, ddi=(ddx!,), B=KSPreconditioner(y; kind))
+           linearise!, ddi=(ddx!,), B=KSPreconditioner(y; kind), project=demean!)
 
 x★ = copy(x₀)
 solve!(x★, system(x★, :jacobian), NewtonHookstep(maxiter=50, krylov_dim=150, Δ=0.1, Δmax=10,
@@ -115,22 +113,29 @@ function stopper(trace::Trace, tmax::Real)
     return info -> (trace(info); trace.time[end] > tmax)
 end
 
-# one search with a method and a preconditioner, from y, for at most tmax seconds; the method is
-# run once briefly first, so that the time does not include compilation
+# One search with a method and a preconditioner, from y, for at most tmax seconds. The method is run
+# once briefly first, with the same callback, so that no time is spent compiling; a search that
+# reaches the tolerance is then run three times and the fastest kept, against the noise of the
+# clock. Each run has a system of its own, whose counters start from zero.
 function search(y::Orbit, method::Symbol, kind::Symbol, tol::Real, tmax::Real;
                 memory::Int=10, krylov_dim::Int=150)
-    F     = system(y, kind)
-    trace = Trace()
-
     make(maxiter, callback) = method === :lbfgs ?
         LBFGS(; memory, maxiter, tol, verbose=false, callback) :
         NewtonHookstep(; krylov_dim, maxiter, tol, Δ=0.1, Δmax=10, verbose=false, callback)
 
-    solve!(copy(y), F, make(2, info -> false))
-    F = system(y, kind)
-    solve!(copy(y), F, make(100_000, stopper(trace, tmax)))
+    # ---- compilation ----
+    solve!(copy(y), system(y, kind), make(2, stopper(Trace(), tmax)))
 
-    return trace
+    # ---- timed runs ----
+    best = Trace()
+    for run in 1:3
+        trace = Trace()
+        solve!(copy(y), system(y, kind), make(100_000, stopper(trace, tmax)))
+        (run == 1 || trace.time[end] < best.time[end]) && (best = trace)
+        trace.res[end] < tol || break
+    end
+
+    return best
 end
 
 g₁ = KSGrid(22, 33, 49)
@@ -143,11 +148,12 @@ starts = (("far start, 33 × 49 (1 619 unknowns)", far(g₁), 1e-6, 20.0),
           ("far start, 129 × 193 (24 899 unknowns)", far(g₄), 1e-6, 60.0),
           ("close start, 129 × 193 (24 899 unknowns)", close(g₄), 1e-6, 60.0))
 
-# method and preconditioner: linear, B = 1 + |Â₀|; jacobian, B = Â₀, with Â₀ the symbol of the
-# linear space-time operator about u = 0 (ks.jl)
-runs   = (("L-BFGS, B = 1 + |Â₀| (linear)", :lbfgs, :linear),
-          ("L-BFGS, B = Â₀ (jacobian)", :lbfgs, :jacobian),
-          ("hookstep, B = Â₀ (jacobian)", :hookstep, :jacobian))
+# method and preconditioner, which multiplies the Fourier mode (k, n) by b = 1 + |λ| (linear) or by
+# b = λ (jacobian), with λ = i(ω₀ n - c₀ k) + k⁴ - k² the eigenvalue of the mode for the linear
+# space-time operator about u = 0 (ks.jl)
+runs   = (("L-BFGS, linear preconditioner", :lbfgs, :linear),
+          ("L-BFGS, jacobian preconditioner", :lbfgs, :jacobian),
+          ("hookstep, jacobian preconditioner", :hookstep, :jacobian))
 colors = Dict(runs[1][1] => :royalblue, runs[2][1] => :seagreen, runs[3][1] => :crimson)
 
 traces = Dict()
@@ -176,51 +182,6 @@ for M in budgets
         @printf "M = %3d, %-8s ‖r‖ = %.1e in %5d iterations, %6d operator applications, %6.2f s\n" M method t.res[end] length(t) - 1 applications(t.evaluations[end]) t.time[end]
     end
     flush(stdout)
-end
-
-
-# ============================================================================ #
-# Hybrid: L-BFGS until ‖r‖ < r_T, then the hookstep                            #
-# ============================================================================ #
-
-# the hybrid search from y: L-BFGS with the linear preconditioner, the better metric for L-BFGS,
-# stopped at ‖r‖ < rT, then the hookstep with the jacobian one, the better for the Newton
-# systems. The two phases use two systems, whose counters are added in a single trace; both
-# methods are run once briefly first, so that the time does not include compilation
-function hybrid(y::Orbit, rT::Real, tol::Real, tmax::Real)
-    solve!(copy(y), system(y, :linear), LBFGS(maxiter=2, verbose=false))
-    solve!(copy(y), system(y, :jacobian), NewtonHookstep(maxiter=2, verbose=false))
-
-    x     = copy(y)
-    trace = Trace()
-    F₁    = system(y, :linear)
-    solve!(x, F₁, LBFGS(maxiter=1_000_000, tol=rT, verbose=false, callback=stopper(trace, tmax)))
-    nl    = length(trace)
-
-    # the second phase continues the counts and the clock of the first
-    e₁   = trace.evaluations[end]
-    t₀   = trace.t₀[]
-    F₂   = system(x, :jacobian)
-    more = info -> (e = info.evaluations;
-                    trace(merge(info, (evaluations = (residual     = e.residual + e₁.residual,
-                                                      gradient     = e.gradient + e₁.gradient,
-                                                      jacobian     = e.jacobian + e₁.jacobian,
-                                                      precondition = e.precondition + e₁.precondition),)));
-                    trace.t₀[] = t₀;
-                    trace.time[end] > tmax)
-    solve!(x, F₂, NewtonHookstep(; krylov_dim=150, maxiter=1000, tol, Δ=0.1, Δmax=10, verbose=false,
-                                 callback=more))
-
-    return trace, nl
-end
-
-thresholds = (3e-2, 2e-2, 1e-2)
-hybrids    = Dict()
-for rT in thresholds
-    hybrids[rT] = hybrid(far(g₁), rT, 1e-6, 20.0)
-
-    t, nl = hybrids[rT]
-    @printf "hybrid, r_T = %.0e: ‖r‖ = %.1e, %4d L-BFGS and %3d Newton iterations, %5d operator applications, %5.3f s\n" rT t.res[end] nl - 1 length(t) - nl - 1 applications(t.evaluations[end]) t.time[end]
 end
 
 
@@ -285,15 +246,15 @@ for (row, (sname, _, tol, _)) in enumerate(starts)
     row == 1 && axislegend(ax1; position=:lb)
 end
 
-save(joinpath(@__DIR__, "figures", "methods.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "methods.png"), fig)
 
 # ---- memory.png: residual against time for each budget, and the cost against the budget ----
 fig = Figure(size=(1300, 420), fontsize=13)
 cmap = cgrad(:viridis, length(budgets); categorical=true)
 
 axes = [Axis(fig[1, j]; title, xlabel="time [s]", ylabel="‖r‖", xscale=log10, yscale=log10)
-        for (j, title) in enumerate(("L-BFGS, B = 1 + |Â₀|, M/2 curvature pairs",
-                                     "hookstep, B = Â₀, M - 1 Krylov vectors"))]
+        for (j, title) in enumerate(("L-BFGS, linear preconditioner, M/2 curvature pairs",
+                                     "hookstep, jacobian preconditioner, M - 1 Krylov vectors"))]
 ts, rs = Float64[], Float64[]
 for (k, M) in enumerate(budgets), (ax, method) in zip(axes, (:lbfgs, :hookstep))
     tr = memtr[(M, method)]
@@ -313,8 +274,8 @@ axislegend(axes[2]; position=:lb)
 ax = Axis(fig[1, 3]; title="time to ‖r‖ < 10⁻⁶", xlabel="stored orbits M", ylabel="time [s]",
           xscale=log10, yscale=log10)
 ys = Float64[]
-for (method, color, label) in ((:lbfgs, :royalblue, "L-BFGS, B = 1 + |Â₀|"),
-                               (:hookstep, :crimson, "hookstep, B = Â₀"))
+for (method, color, label) in ((:lbfgs, :royalblue, "L-BFGS, linear"),
+                               (:hookstep, :crimson, "hookstep, jacobian"))
     local y = [memtr[(M, method)].res[end] < 1e-6 ? memtr[(M, method)].time[end] : NaN for M in budgets]
     println(method, ": time to the tolerance against M: ", y)
     scatterlines!(ax, collect(budgets), y; color, label, markersize=9)
@@ -326,36 +287,4 @@ decades!(ax, ys; axis=:y)
 # the lower left corner is empty: no method reaches the tolerance with the smallest budgets fast
 axislegend(ax; position=:lb)
 
-save(joinpath(@__DIR__, "figures", "memory.png"), fig)
-
-# ---- hybrid.png: far start on the base grid, L-BFGS, hookstep and the hybrid ----
-fig  = Figure(size=(1100, 430), fontsize=13)
-hmap = cgrad(:plasma, length(thresholds) + 1; categorical=true)
-sname, _, tol, _ = starts[1]
-
-ax1 = Axis(fig[1, 1]; title=sname, xlabel="operator applications (each N, L or L⁺ counts 1)",
-           ylabel="‖r‖", xscale=log10, yscale=log10)
-ax2 = Axis(fig[1, 2]; title=sname, xlabel="time [s]", ylabel="‖r‖", xscale=log10, yscale=log10)
-
-curves = Any[(rname, traces[(sname, rname)], colors[rname], :solid) for (rname, _, _) in runs]
-for (k, rT) in enumerate(thresholds)
-    push!(curves, ("hybrid, r_T = $rT", first(hybrids[rT]), hmap[k], :dash))
-end
-
-xs, ts, rs = Float64[], Float64[], Float64[]
-for (label, tr, color, linestyle) in curves
-    n = max.(applications.(tr.evaluations), 1)
-    t = max.(tr.time, 1e-4)
-    lines!(ax1, n, tr.res; color, linestyle, label)
-    lines!(ax2, t, tr.res; color, linestyle, label)
-    append!(xs, n); append!(ts, t); append!(rs, tr.res)
-end
-hlines!(ax1, tol; color=:black, linestyle=:dot)
-hlines!(ax2, tol; color=:black, linestyle=:dot)
-
-decades!(ax1, xs); decades!(ax2, ts)
-decades!(ax1, [rs; tol]; axis=:y); decades!(ax2, [rs; tol]; axis=:y)
-linkyaxes!(ax1, ax2)
-Legend(fig[1, 3], ax1; labelsize=11, framevisible=false)
-
-save(joinpath(@__DIR__, "figures", "hybrid.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "memory.png"), fig)

@@ -5,6 +5,12 @@
 # with velocity u = -∂y ψ, v = ∂x ψ from the streamfunction, ∇²ψ = ω, with the conventions of
 # OpenKolmogorovFlow.jl (and of Chandler & Kerswell 2013).
 #
+# The method and the notation are those of the paper "Space-time Newton–Krylov searches for unstable
+# periodic orbits of two-dimensional Kolmogorov flow" (D. Lasagna, in preparation) and of the page
+# docs/src/examples/kolmogorov_flow.md. The names here differ in three places: the vorticity η of
+# the paper is ω here (the frequency is ReSolver.frequency), the cutoff K of the paper is n, and
+# its forcing wavenumber n is kf. The paper uses Re = 40, kf = 4 and n = 33.
+#
 # The state is a Fourier field, as an FTField of OpenKolmogorovFlow.jl: the coefficients ω̂(kx, ky)
 # of the active modes 0 ≤ kx ≤ n, |ky| ≤ n, normalised so that ω(x, y) = Σ ω̂ exp(i(kx x + ky y)),
 # with the mean mode kx = ky = 0 always zero. A space-time field, a KFField, holds the state at the
@@ -19,7 +25,8 @@
 #
 # Relative periodic orbits. Translations along x are a continuous symmetry, handled as in the other
 # examples by a drift speed. Translations along y by multiples of 2π/kf, the forcing wavelength, are
-# a discrete symmetry: an orbit may repeat after a period up to such a shift ℓy,
+# a discrete symmetry, optional and not used in the paper: an orbit may repeat after a period up to
+# such a shift ℓy,
 # ω(x, y, t + T) = ω(x + ℓx, y + ℓy, t). The grid keyword `yshift` = ℓy makes the space-time field
 # periodic up to that shift, â(kx, ky, s + 2π) = exp(i ky ℓy) â(kx, ky, s): the derivative in s acts
 # on the periodic part exp(-i φ s) â, φ = ky ℓy/2π, as a multiplication by i(n + φ) on its Fourier
@@ -28,19 +35,21 @@
 # The model runs on the CPU or on a GPU: the arrays of the grid and of the fields are built with the
 # constructor `array` given to the grid, `Array` by default or e.g. `CuArray` with CUDA.jl loaded,
 # the FFTs go through AbstractFFTs, and the operators use broadcasting and views only, no scalar
-# indexing. The initial guess is built on the CPU and copied to the device.
+# indexing. They work in double or single precision, the keyword `precision` of the grid. The
+# initial guess is built on the CPU in double precision and copied to the device.
 #
 # The file provides what a ReSolver System needs, and the pieces to build an initial guess:
 #
 #     KFGrid(n, Ns; Re, kf, yshift,    grid: wavenumbers, mask, FFT plans, on the device
-#            array)
+#            array, precision)
 #     KFField(g)                       space-time Fourier field, zero
 #     ddx!(out, ω), dds!(out, ω)       derivatives along x and in rescaled time s
 #     KFNonlinear, KFLinearised        N(ω), its linearisation and adjoint
 #     linearise!(op, ω)                linearisation point of KFLinearised
-#     KFPreconditioner                 diagonal preconditioner in space-time Fourier
+#     KFPreconditioner                 diagonal or factorised preconditioner, kolmogorov_flow.md
 #     physical(ω, l)                   the vorticity at the rescaled time s_l on the physical grid
 #     integrate, recurrence            time integration (ETDRK4) and near-recurrences
+#     initial_orbit, coefficients      an initial orbit from a recurrence, or from a seed
 
 using FFTW
 using LinearAlgebra
@@ -56,6 +65,15 @@ import ReSolver: precondition!, precondition_adjoint!
 # active and storage cutoffs, and points of the physical grid, as in OpenKolmogorovFlow.jl
 up_dealias_size(n::Int) = n + n >> 1
 
+"""
+    KFGrid(n, Ns; Re=40, kf=4, yshift=0, array=Array, precision=:double)
+
+Grid of the space-time Kolmogorov flow: the active modes 0 ≤ kx ≤ n, |ky| ≤ n, the physical grid
+of (2m+2)² points, m = n + n÷2, which dealiases the products by the 3/2 rule, and `Ns` instants in
+rescaled time, `Ns` odd. `array` builds the arrays on the device, e.g. `CuArray`, and `precision`
+is `:double` or `:single`. `yshift` makes the loops periodic up to a translation along y by that
+amount, a multiple of 2π/kf; zero for periodic loops.
+"""
 struct KFGrid{R, C, T, FP, IP, FS, IS, A}
           n::Int     # active cutoff
           m::Int     # storage cutoff, m = n + n÷2
@@ -71,52 +89,63 @@ struct KFGrid{R, C, T, FP, IP, FS, IS, A}
       twist::T       # exp(i ky ℓy s/2π), the phases of the shift, 1 × (2n+1) × Ns
        mask::R       # 0 on the mean mode, 1 elsewhere
      invlap::R       # inverse Laplacian -1/(kx² + ky²), zero on the mean mode
+    viscous::R       # viscous term (1/Re) ∇², -(kx² + ky²)/Re
     forcing::C       # coefficients of the forcing -kf cos(kf y)
     physfwd::FP      # real FFT over (x, y), for every s, physical grid → padded coefficients
     physinv::IP      # its unnormalised inverse
-     timefwd::FS     # FFT along s of the active coefficients
-     timeinv::IS     # its unnormalised inverse
+     timefwd::FS     # FFT along s of the active coefficients, in place
+     timeinv::IS     # its unnormalised inverse, in place
       array::A       # constructor of the arrays on the device, Array or e.g. CuArray
 
-    function KFGrid(n::Int, Ns::Int; Re::Real=40, kf::Int=4, yshift::Real=0, array=Array)
+    function KFGrid(n::Int,
+                   Ns::Int;
+                   Re::Real=40,
+                   kf::Int=4,
+               yshift::Real=0,
+                array=Array,
+            precision::Symbol=:double)
 
         # ---- input checks ----
         isodd(Ns) ||
             throw(ArgumentError("Ns must be odd"))
         kf <= n ||
             throw(ArgumentError("the forcing wavenumber must be active, kf ≤ n"))
+        precision in (:double, :single) ||
+            throw(ArgumentError("precision must be :double or :single"))
 
-        # ---- sizes and wavenumbers ----
+        # ---- sizes and wavenumbers, in the floating-point type of the precision ----
+        T  = precision === :double ? Float64 : Float32
         m  = up_dealias_size(n)
         M  = 2m + 2
-        kx = reshape(collect(0.0:n), :, 1, 1)
-        ky = reshape(Float64[0:n; -n:-1], 1, :, 1)
-        s  = reshape(fftfreq(Ns, Ns), 1, 1, :)
+        kx = reshape(collect(T, 0:n), :, 1, 1)
+        ky = reshape(T[0:n; -n:-1], 1, :, 1)
+        s  = reshape(T.(fftfreq(Ns, Ns)), 1, 1, :)
 
         # ---- shifted temporal wavenumbers and phases of the shift along y ----
-        φ     = ky .* (yshift / 2π)
+        φ     = ky .* T(yshift / 2π)
         σ     = s .+ φ
-        twist = cis.(φ .* reshape((0:Ns - 1) .* (2π / Ns), 1, 1, :))
+        twist = cis.(φ .* reshape(T.((0:Ns - 1) .* (2π / Ns)), 1, 1, :))
 
-        # ---- mask of the mean mode and inverse Laplacian ----
-        k²     = kx.^2 .+ ky.^2
-        mask   = @. Float64(k² != 0)
-        invlap = @. ifelse(k² == 0, 0.0, -1 / k²)
+        # ---- mask of the mean mode, inverse Laplacian and viscous term ----
+        k²      = kx.^2 .+ ky.^2
+        mask    = @. T(k² != 0)
+        invlap  = @. ifelse(k² == 0, zero(T), -1 / k²)
+        viscous = @. -k² / T(Re)
 
         # ---- forcing -kf cos(kf y): coefficients -kf/2 at (0, ±kf), at every s ----
-        forcing = zeros(ComplexF64, n + 1, 2n + 1, Ns)
+        forcing = zeros(Complex{T}, n + 1, 2n + 1, Ns)
         forcing[1, kf + 1, :]      .= -kf / 2
         forcing[1, 2n + 2 - kf, :] .= -kf / 2
 
         # ---- FFT plans on the device ----
-        u = array(zeros(M, M, Ns))
-        P = array(zeros(ComplexF64, m + 2, M, Ns))
-        a = array(zeros(ComplexF64, n + 1, 2n + 1, Ns))
+        u = array(zeros(T, M, M, Ns))
+        P = array(zeros(Complex{T}, m + 2, M, Ns))
+        a = array(zeros(Complex{T}, n + 1, 2n + 1, Ns))
 
         physfwd = plan_rfft(u, (1, 2))
         physinv = plan_brfft(P, M, (1, 2))
-        timefwd = plan_fft(a, 3)
-        timeinv = plan_bfft(a, 3)
+        timefwd = plan_fft!(a, 3)
+        timeinv = plan_bfft!(a, 3)
 
         dev = array.((kx, ky, s))
 
@@ -139,6 +168,7 @@ struct KFGrid{R, C, T, FP, IP, FS, IS, A}
                                   array(twist),
                                   array(mask),
                                   array(invlap),
+                                  array(viscous),
                                   array(forcing),
                                   physfwd,
                                   physinv,
@@ -150,7 +180,7 @@ end
 
 # the active coefficients zero-padded to the coefficients of the physical grid, and back, with the
 # normalisation of the coefficients; the ky ≥ 0 and ky < 0 blocks are copied as views
-function _pad!(P::AbstractArray{ComplexF64, 3}, a::AbstractArray{ComplexF64, 3}, g::KFGrid)
+function _pad!(P::AbstractArray{<:Complex, 3}, a::AbstractArray{<:Complex, 3}, g::KFGrid)
     n, M = g.n, g.M
 
     fill!(P, 0)
@@ -160,7 +190,7 @@ function _pad!(P::AbstractArray{ComplexF64, 3}, a::AbstractArray{ComplexF64, 3},
     return P
 end
 
-function _truncate!(a::AbstractArray{ComplexF64, 3}, P::AbstractArray{ComplexF64, 3}, g::KFGrid)
+function _truncate!(a::AbstractArray{<:Complex, 3}, P::AbstractArray{<:Complex, 3}, g::KFGrid)
     n, M = g.n, g.M
 
     view(a, :, 1:n + 1, :)      .= view(P, 1:n + 1, 1:n + 1, :) ./ M^2
@@ -178,14 +208,13 @@ end
     KFField(g, data=zeros)
 
 Space-time Fourier field on the grid `g`: the active coefficients of the vorticity at the Ns rescaled
-times, an (n+1) × (2n+1) × Ns complex array on the device of the grid.
+times, an (n+1) × (2n+1) × Ns complex array on the device and in the precision of the grid.
 """
-struct KFField{G<:KFGrid, D<:AbstractArray{ComplexF64, 3}} <: AbstractArray{ComplexF64, 3}
+struct KFField{T, G<:KFGrid, D} <: AbstractArray{T, 3}
     data::D # active coefficients at the rescaled times
        g::G # grid, shared
 
-    KFField(g::G, data::D=g.array(zeros(ComplexF64, g.n + 1, 2g.n + 1, g.Ns))) where {G<:KFGrid, D} =
-        new{G, D}(data, g)
+    KFField(g::G, data::D=zero(g.forcing)) where {G<:KFGrid, D} = new{eltype(D), G, D}(data, g)
 end
 
 # ---- array interface ----
@@ -198,12 +227,16 @@ Base.similar(u::KFField) = KFField(u.g, similar(u.data))
 Base.copy(u::KFField)    = KFField(u.g, copy(u.data))
 
 # Mean over space and rescaled time of the products of the fields: by Parseval, the sum over the full
-# spectrum, where each stored mode with kx > 0 stands for itself and its conjugate, kx < 0
+# spectrum, where each stored mode with kx > 0 stands for itself and its conjugate, kx < 0. Both sums
+# are dot products of vectors, by BLAS on the CPU and CUBLAS on the GPU: of all the coefficients,
+# and of those with kx = 0, a strided vector
 function LinearAlgebra.dot(u::KFField, v::KFField)
-    all  = real(dot(u.data, v.data))
-    zero = real(dot(view(u.data, 1, :, :), view(v.data, 1, :, :)))
+    n = u.g.n
 
-    return (2all - zero) / u.g.Ns
+    all = real(dot(vec(u.data), vec(v.data)))
+    kx₀ = real(dot(view(reshape(u.data, n + 1, :), 1, :), view(reshape(v.data, n + 1, :), 1, :)))
+
+    return (2all - kx₀) / u.g.Ns
 end
 
 LinearAlgebra.norm(u::KFField) = sqrt(dot(u, u))
@@ -211,7 +244,7 @@ LinearAlgebra.norm(u::KFField) = sqrt(dot(u, u))
 # ---- broadcasting keeps the field type, and runs on the arrays of the device ----
 Base.BroadcastStyle(::Type{<:KFField}) = Broadcast.ArrayStyle{KFField}()
 
-Base.similar(bc::Broadcast.Broadcasted{Broadcast.ArrayStyle{KFField}}, ::Type{ComplexF64}) =
+Base.similar(bc::Broadcast.Broadcasted{Broadcast.ArrayStyle{KFField}}, ::Type{<:Complex}) =
     similar(_kf_field(bc))
 
 # the broadcast with the fields replaced by their arrays, executed by the array type, e.g. as a GPU
@@ -235,7 +268,7 @@ _kf_field(u)                         = u
 function physical(u::KFField, l::Int)
     g = u.g
     a = Array(u.data)[:, :, l]
-    P = zeros(ComplexF64, g.m + 2, g.M)
+    P = zeros(eltype(a), g.m + 2, g.M)
 
     P[1:g.n + 1, 1:g.n + 1]           .= a[:, 1:g.n + 1]
     P[1:g.n + 1, g.M - g.n + 1:g.M]   .= a[:, g.n + 2:2g.n + 1]
@@ -251,14 +284,15 @@ end
 # out = ∂x u, a multiplication of the coefficients
 ddx!(out::KFField, u::KFField) = (out.data .= im .* u.g.kx .* u.data; out)
 
-# out = ∂s u, by FFTs along s of the periodic part exp(-i φ s) u
+# out = ∂s u, by FFTs along s of the periodic part exp(-i φ s) u, in place in out
 function dds!(out::KFField, u::KFField)
     g = u.g
 
     out.data .= conj.(g.twist) .* u.data
-    out.data .= g.timefwd * out.data
+    g.timefwd * out.data
     out.data .*= im .* g.σ ./ g.Ns
-    out.data .= g.twist .* (g.timeinv * out.data)
+    g.timeinv * out.data
+    out.data .*= g.twist
 
     return out
 end
@@ -271,9 +305,10 @@ end
 # Work arrays of the operators: four fields on the physical grid, four arrays of padded coefficients
 # and two of active coefficients, on the device of the grid.
 function _work(g::KFGrid)
-    phys   = ntuple(i -> g.array(zeros(g.M, g.M, g.Ns)), 4)
-    padded = ntuple(i -> g.array(zeros(ComplexF64, g.m + 2, g.M, g.Ns)), 4)
-    active = ntuple(i -> g.array(zeros(ComplexF64, g.n + 1, 2g.n + 1, g.Ns)), 2)
+    T      = real(eltype(g.forcing))
+    phys   = ntuple(i -> g.array(zeros(T, g.M, g.M, g.Ns)), 4)
+    padded = ntuple(i -> g.array(zeros(Complex{T}, g.m + 2, g.M, g.Ns)), 4)
+    active = ntuple(i -> zero(g.forcing), 2)
 
     return phys, padded, active
 end
@@ -319,7 +354,7 @@ function (op::KFNonlinear)(out::KFField, ω::KFField)
     _coefficients!(active[2], padded[1], u, g)
 
     # ---- viscous term and forcing ----
-    out.data .= g.mask .* (active[2] .- (g.kx.^2 .+ g.ky.^2) .* ω.data ./ g.Re .+ g.forcing)
+    out.data .= g.mask .* (active[2] .+ g.viscous .* ω.data .+ g.forcing)
 
     return out
 end
@@ -339,7 +374,7 @@ struct KFLinearised{G<:KFGrid, B, W}
        work::W    # work arrays
 
     function KFLinearised(g::G; adjoint::Bool=false) where {G<:KFGrid}
-        base = ntuple(i -> g.array(zeros(g.M, g.M, g.Ns)), 4)
+        base = ntuple(i -> g.array(zeros(real(eltype(g.forcing)), g.M, g.M, g.Ns)), 4)
         work = _work(g)
 
         return new{G, typeof(base), typeof(work)}(g, adjoint, base, work)
@@ -390,7 +425,7 @@ function (op::KFLinearised)(out::KFField, v::KFField)
     end
 
     # ---- viscous term, mean excluded ----
-    out.data .= g.mask .* (out.data .- (g.kx.^2 .+ g.ky.^2) .* v.data ./ g.Re)
+    out.data .= g.mask .* (out.data .+ g.viscous .* v.data)
 
     return out
 end
@@ -400,53 +435,131 @@ end
 # Preconditioner                                                               #
 # ============================================================================ #
 
-# Diagonal preconditioner in space-time Fourier, frozen at ω₀ and c₀: the coefficient of the mode
-# (kx, ky, n) is divided by one of two multipliers,
+# Preconditioners built about an orbit x₀, of frequency ω₀ and drift speed c₀. Two are
+# diagonal in space-time Fourier, and divide the coefficient of the mode (kx, ky, m) by
 #
-#     kind = :jacobian    i(ω₀ n - c₀ kx) + (kx² + ky²)/Re, the linear space-time operator about
-#                         ω = 0
-#     kind = :linear      1 + |i(ω₀ n - c₀ kx) + (kx² + ky²)/Re|, its size
+#     kind = :jacobian    λ = i(ω₀ m - c₀ kx) + (kx² + ky²)/Re, the linear space-time operator about
+#                         the state of zero vorticity, J_t + L₀ in the notation of the paper
+#     kind = :linear      1 + |λ|, its size, positive: the metric of L-BFGS
 #
-# with 1 on the mean mode, which is excluded. The parameters are divided by ‖ω₀ ∂s ω₀‖ and
-# ‖∂x ω₀‖, their Gauss–Newton curvatures.
-struct KFPreconditioner{C}
-    β::C               # multipliers, (n+1) × (2n+1) × Ns, on the device
-    s::Vector{Float64} # parameter scales
+# with 1 on the mean mode, which is excluded. The third is the factorised preconditioner of the paper
+# (docs/src/examples/kolmogorov_flow.md),
+#
+#     kind = :factorised  B = (J_t + σ)(σ + J_x)/σ, with the pieces of the field block of the
+#                         Jacobian about x₀: the time derivative J_t = ω₀ ∂s and the spatial operator
+#                         J_x = L₀ + J_conv, L₀ = J_drift + J_visc, J_drift = -c₀ ∂x, J_visc the
+#                         viscous term and J_conv the convective term. B⁻¹ divides the temporal mode
+#                         m by 1 + i ω₀ m/σ, then solves the blocks σ + J_x(s_l) at all the times at
+#                         once by `inner` steps of GMRES from zero, right preconditioned by their
+#                         diagonal part σ + L₀ = σ - i c₀ kx + (kx² + ky²)/Re
+#
+# With m shifted by φ = ky ℓy/2π for an orbit shifted along y. The paper uses σ = min(Ns/T, 2.5) and
+# inner = 10, with NewtonHookstep(flexible=true); the defaults σ = 3 and inner = 5 are not these
+# settings. The inexact inner solves make the factorised B⁻¹ slightly nonlinear: flexible GMRES
+# forms the step from the preconditioned vectors and stays consistent, and B⁻¹ has no adjoint for
+# L-BFGS. The parameters are divided by ‖ω₀ ∂s ω₀‖ and ‖∂x ω₀‖, the norms of their columns of the
+# Jacobian. Built about x₀, the preconditioner is rebuilt about the current orbit at every Newton
+# iteration of the hookstep, by ReSolver.relinearise!, below.
+"""
+    KFPreconditioner(x₀::Orbit; kind=:jacobian, σ=3.0, inner=5)
 
-    function KFPreconditioner(x₀::Orbit; kind::Symbol=:jacobian)
+Preconditioner of the Kolmogorov flow built about the orbit `x₀`, for the `B` of a `System`.
+`kind=:jacobian` and `kind=:linear` are diagonal in space-time Fourier; `kind=:factorised` is the
+factorised preconditioner of the paper, with shift `σ` and `inner` steps of GMRES on the blocks at
+the instants, for the hookstep with `NewtonHookstep(flexible=true)`. The paper uses
+`σ=min(Ns / T, 2.5)` and `inner=10`.
+"""
+mutable struct KFPreconditioner{C, L, W}
+     kind::Symbol            # :jacobian, :linear or :factorised
+        β::C                 # divisors of the temporal Fourier modes, (n+1) × (2n+1) × Ns
+        d::C                 # :factorised, diagonal part of the blocks, (n+1) × (2n+1) × 1
+        s::Vector{Float64}   # parameter scales
+      lin::L                 # :factorised, operator linearised about x₀; nothing otherwise
+        σ::Float64           # :factorised, shift
+    inner::Int               # :factorised, steps of GMRES on the blocks
+       c₀::Float64           # drift speed of the orbit it is built about
+     work::W                 # :factorised, inner products weights and work fields; nothing otherwise
+
+    function KFPreconditioner(x₀::Orbit; kind::Symbol=:jacobian, σ::Real=3.0, inner::Int=5)
 
         # ---- input checks ----
-        kind in (:jacobian, :linear) ||
-            throw(ArgumentError("kind must be :jacobian or :linear"))
+        kind in (:jacobian, :linear, :factorised) ||
+            throw(ArgumentError("kind must be :jacobian, :linear or :factorised"))
 
-        a₀ = x₀.a
-        g  = a₀.g
-        ω₀ = ReSolver.frequency(x₀)
-        c₀ = length(x₀.p) > 1 ? x₀.p[2] : 0.0
+        a₀   = x₀.a
+        g    = a₀.g
+        T    = eltype(a₀.data)
+        c₀   = length(x₀.p) > 1 ? x₀.p[2] : 0.0
+        β, d = _divisors(kind, x₀, σ)
 
-        # ---- field; 1 on the mean mode ----
-        A = @. im * (ω₀ * g.σ - c₀ * g.kx) + (g.kx^2 + g.ky^2) / g.Re
-        B = kind === :jacobian ? A : @.(1 + abs(A) + 0im)
-        β = @. ifelse(g.mask == 0, one(B), B)
+        # ---- the factorised kind: the linearised operator, inner product weights, work fields ----
+        lin  = nothing
+        work = nothing
+        if kind === :factorised
+            lin  = linearise!(KFLinearised(g), a₀)
+            work = (weight = g.array(reshape(real(T)[1; fill(2, g.n)], :, 1, 1)),
+                    fields = [KFField(g) for _ in 1:inner + 4])
+        end
 
-        # ---- parameters ----
-        ∂a = similar(a₀)
-        s  = [norm(ω₀ .* dds!(∂a, a₀))]
-        length(x₀.p) > 1 && push!(s, norm(ddx!(∂a, a₀)))
-
-        return new{typeof(β)}(β, s)
+        return new{typeof(β), typeof(lin), typeof(work)}(kind, β, d, _scales(x₀), lin, σ, inner, c₀,
+                                                         work)
     end
 end
 
-# B is diagonal in space-time Fourier, on the periodic part exp(-i φ s) of the field: B⁻⁺ divides by
-# the complex conjugate multipliers
+# the divisors of the temporal modes, in the precision of the field and 1 on the mean mode, and the
+# diagonal part of the blocks, with the frequency and the drift speed of the orbit x
+function _divisors(kind::Symbol, x::Orbit, σ::Real)
+    g = x.a.g
+    T = eltype(x.a.data)
+    ω = ReSolver.frequency(x)
+    c = length(x.p) > 1 ? x.p[2] : 0.0
+
+    λ = @. im * (ω * g.σ - c * g.kx) - g.viscous
+    b = kind === :jacobian ? λ :
+        kind === :linear   ? @.(1 + abs(λ) + 0im) :
+                             @.(1 + im * ω * g.σ / σ + zero(λ))
+    β = T.(@. ifelse(g.mask == 0, one(b), b))
+    d = T.(@. σ - im * c * g.kx - g.viscous)
+
+    return β, d
+end
+
+# the scales of the parameters: the norms of their columns of the Jacobian, ‖ω ∂s a‖ and ‖∂x a‖
+function _scales(x::Orbit)
+    ∂a = similar(x.a)
+    s  = [norm(ReSolver.frequency(x) .* dds!(∂a, x.a))]
+    length(x.p) > 1 && push!(s, norm(ddx!(∂a, x.a)))
+
+    return s
+end
+
+# The preconditioner rebuilt about the orbit x, in place, at every Newton iteration of the hookstep:
+# the divisors and the diagonal part with the frequency and the drift speed of x, the operator of the
+# blocks linearised about its field, and the parameter scales; the kind, σ and the inner steps stay
+function ReSolver.relinearise!(B::KFPreconditioner, x::Orbit)
+    β, d = _divisors(B.kind, x, B.σ)
+
+    B.β .= β
+    B.d .= d
+    B.s .= _scales(x)
+    B.c₀ = length(x.p) > 1 ? x.p[2] : 0.0
+    B.kind === :factorised && linearise!(B.lin, x.a)
+
+    return B
+end
+
+# The temporal modes are divided on the periodic part exp(-i φ s) of the field, then the factorised
+# preconditioner solves its blocks; B⁻⁺ of the diagonal kinds divides by the conjugate multipliers
 function precondition!(out::Orbit, B::KFPreconditioner, p::Orbit)
     g = p.a.g
 
     out.a.data .= conj.(g.twist) .* p.a.data
-    out.a.data .= g.timefwd * out.a.data
+    g.timefwd * out.a.data
     out.a.data .*= g.mask ./ (B.β .* g.Ns)
-    out.a.data .= g.twist .* (g.timeinv * out.a.data)
+    g.timeinv * out.a.data
+    out.a.data .*= g.twist
+
+    B.kind === :factorised && _blocks!(out.a, B)
 
     out.p .= p.p ./ B.s
 
@@ -454,16 +567,78 @@ function precondition!(out::Orbit, B::KFPreconditioner, p::Orbit)
 end
 
 function precondition_adjoint!(out::Orbit, B::KFPreconditioner, p::Orbit)
+    B.kind === :factorised &&
+        throw(ArgumentError("the factorised preconditioner has no adjoint: use it with the hookstep"))
+
     g = p.a.g
 
     out.a.data .= conj.(g.twist) .* p.a.data
-    out.a.data .= g.timefwd * out.a.data
+    g.timefwd * out.a.data
     out.a.data .*= g.mask ./ (conj.(B.β) .* g.Ns)
-    out.a.data .= g.twist .* (g.timeinv * out.a.data)
+    g.timeinv * out.a.data
+    out.a.data .*= g.twist
 
     out.p .= p.p ./ B.s
 
     return out
+end
+
+# The blocks σ + J_u,drift + J_u,visc + J_u,conv(s_l) of the factorised preconditioner, solved in
+# place at all the times at once by B.inner steps of GMRES from zero, right preconditioned by their
+# diagonal part B.d: each time has
+# its own inner products, Hessenberg matrix and least-squares problem, while every inner step applies
+# the operator to all the times together.
+function _blocks!(z::KFField, B::KFPreconditioner)
+    g  = z.g
+    R  = real(eltype(z.data))
+    k  = B.inner
+    σ  = R(B.σ)
+    c₀ = R(B.c₀)
+
+    Q   = B.work.fields[1:k + 1] # Krylov vectors
+    f   = B.work.fields[k + 2]   # right-hand side
+    w   = B.work.fields[k + 3]   # operator output
+    tmp = B.work.fields[k + 4]   # derivative along x
+
+    # inner products at each time, the modes kx > 0 counted twice for their conjugates, and a vector
+    # of a number per time as a 1 × 1 × Ns array on the device
+    dots(u, v) = Float64.(Array(vec(sum(B.work.weight .* real.(conj.(u) .* v); dims=(1, 2)))))
+    bytime(h)  = reshape(g.array(R.(h)), 1, 1, :)
+
+    # ---- the right-hand side, normalised at each time ----
+    f.data .= z.data
+    β₀ = sqrt.(dots(f.data, f.data))
+    H  = zeros(k + 1, k, g.Ns)
+    Q[1].data .= f.data ./ bytime(max.(β₀, eps()))
+
+    # ---- Arnoldi, two passes of Gram–Schmidt; z holds D⁻¹ q_j ----
+    for j in 1:k
+        z.data .= Q[j].data ./ B.d
+        B.lin(w, z)
+        w.data .= σ .* z.data .- c₀ .* ddx!(tmp, z).data .- w.data
+        for _ in 1:2, i in 1:j
+            h          = dots(Q[i].data, w.data)
+            w.data   .-= bytime(h) .* Q[i].data
+            H[i, j, :] .+= h
+        end
+        H[j + 1, j, :] .= sqrt.(dots(w.data, w.data))
+        Q[j + 1].data  .= w.data ./ bytime(max.(H[j + 1, j, :], eps()))
+    end
+
+    # ---- least squares at each time, and the solution D⁻¹ Q y ----
+    Y = zeros(k, g.Ns)
+    for l in 1:g.Ns
+        e₁       = zeros(k + 1)
+        e₁[1]    = β₀[l]
+        Y[:, l] .= H[:, :, l] \ e₁
+    end
+    fill!(z.data, 0)
+    for j in 1:k
+        z.data .+= bytime(Y[j, :]) .* Q[j].data
+    end
+    z.data ./= B.d
+
+    return z
 end
 
 
@@ -476,11 +651,11 @@ end
 # every `every` steps as the slices of an (n+1) × (2n+1) × (nsteps ÷ every + 1) array.
 function integrate(ω̂₀::AbstractMatrix, g::KFGrid, dt::Real, nsteps::Int; every::Int=1)
     n, m, M = g.n, g.m, g.M
-    kx      = Array(g.kx)[:, :, 1]
-    ky      = Array(g.ky)[:, :, 1]
-    mask    = Array(g.mask)[:, :, 1]
-    invlap  = Array(g.invlap)[:, :, 1]
-    F̂       = Array(g.forcing)[:, :, 1]
+    kx      = Float64.(Array(g.kx)[:, :, 1])
+    ky      = Float64.(Array(g.ky)[:, :, 1])
+    mask    = Float64.(Array(g.mask)[:, :, 1])
+    invlap  = Float64.(Array(g.invlap)[:, :, 1])
+    F̂       = ComplexF64.(Array(g.forcing)[:, :, 1])
     λ       = -(kx.^2 .+ ky.^2) ./ g.Re
 
     # ---- ETDRK4 coefficients, by contour integrals on 32 points ----
@@ -495,12 +670,23 @@ function integrate(ω̂₀::AbstractMatrix, g::KFGrid, dt::Real, nsteps::Int; ev
     f2 = dt .* real.(avg((2 .+ LR .+ exp.(LR) .* (-2 .+ LR)) ./ LR.^3))
     f3 = dt .* real.(avg((-4 .- 3LR .- LR.^2 .+ exp.(LR) .* (4 .- LR)) ./ LR.^3))
 
+    # ---- transforms of one state, planned once and on one thread, since they are small ----
+    P   = zeros(ComplexF64, m + 2, M)
+    fwd = plan_rfft(zeros(M, M); num_threads=1)
+    bwd = plan_brfft(P, M; num_threads=1)
+
     # ---- nonlinear term and forcing, dealiased on the physical grid ----
-    pad(a) = (P = zeros(ComplexF64, m + 2, M);
-              P[1:n + 1, 1:n + 1] .= a[:, 1:n + 1];
-              P[1:n + 1, M - n + 1:M] .= a[:, n + 2:2n + 1];
-              brfft(P, M))
-    trunc(p) = (P = rfft(p) ./ M^2; [P[1:n + 1, 1:n + 1] P[1:n + 1, M - n + 1:M]])
+    function pad(a)
+        fill!(P, 0)
+        P[1:n + 1, 1:n + 1]     .= a[:, 1:n + 1]
+        P[1:n + 1, M - n + 1:M] .= a[:, n + 2:2n + 1]
+        return bwd * P
+    end
+
+    function trunc(p)
+        p̂ = (fwd * p) ./ M^2
+        return [p̂[1:n + 1, 1:n + 1] p̂[1:n + 1, M - n + 1:M]]
+    end
 
     function Nl(ω̂)
         u  = pad(-im .* ky .* invlap .* ω̂)
@@ -532,54 +718,78 @@ function integrate(ω̂₀::AbstractMatrix, g::KFGrid, dt::Real, nsteps::Int; ev
 end
 
 # the state ω̂ translated by ℓ along x, ω(x + ℓ, y)
-shift(ω̂::AbstractMatrix, ℓ::Real, g::KFGrid) = ω̂ .* exp.(im .* Array(g.kx)[:, :, 1] .* ℓ)
+shift(ω̂::AbstractMatrix, ℓ::Real, g::KFGrid) = ω̂ .* exp.(im .* Float64.(Array(g.kx)[:, :, 1]) .* ℓ)
 
-# Best near-recurrence of the states W, spaced by Δt: the start i, the lag m and the shift ℓ
-# minimising ‖W[:, :, i+m] - W(x + ℓ)[:, :, i]‖ relative to ‖W[:, :, i]‖, for lags whose duration
-# lies in Trange, the shift on a grid of 4(n+1) values. Starts where the flow is nearly steady, close
-# to an equilibrium or a travelling wave, are skipped: there the state changes by less than a
-# fraction `motion` over a quarter of the shortest lag, up to a shift.
+# Best near-recurrence of the states W, spaced by Δt: the start i, the lag m and the shifts ℓx, ℓy
+# minimising ‖W[:, :, i+m] - W(x + ℓx, y + ℓy)[:, :, i]‖ relative to ‖W[:, :, i]‖, for lags whose
+# duration lies in Trange: ℓx on a grid of 4(n+1) values, ℓy a multiple of the forcing wavelength
+# 2π/kf, a discrete symmetry. Starts where the flow is nearly steady, close to an equilibrium or a
+# travelling wave, are skipped: there the state changes by less than a fraction `motion` over a
+# quarter of the shortest lag, up to a shift.
 function recurrence(W::AbstractArray{<:Complex, 3}, g::KFGrid, Δt::Real, Trange; motion::Real=0.3)
     n    = g.n
     lags = ceil(Int, first(Trange) / Δt):floor(Int, last(Trange) / Δt)
     q    = first(lags) ÷ 4
 
     # ---- weights of the half spectrum, shifts and their phases ----
-    w  = [1; fill(2, n)]
-    ℓs = range(0, 2π; length=4(n + 1) + 1)[1:end - 1]
-    E  = [w[k + 1] * cis(k * ℓ) for ℓ in ℓs, k in 0:n]
-    n² = [sum(w .* sum(abs2, W[:, :, i]; dims=2)) for i in axes(W, 3)]
+    w   = [1; fill(2, n)]
+    ky  = Float64.(Array(g.ky)[1, :, 1])
+    ℓxs = range(0, 2π; length=4(n + 1) + 1)[1:end - 1]
+    ℓys = (0:g.kf - 1) .* (2π / g.kf)
+    E   = [w[k + 1] * cis(k * ℓ) for ℓ in ℓxs, k in 0:n]
+    Y   = [cis.(ky .* ℓ) for ℓ in ℓys]
+    n²  = [sum(w .* sum(abs2, W[:, :, i]; dims=2)) for i in axes(W, 3)]
 
-    # largest correlation Re Σ w conj(b̂) â exp(i kx ℓ) over the shifts, and the best shift
+    # largest correlation Re Σ w conj(b̂) â exp(i (kx ℓx + ky ℓy)) over the shifts, and the best ones
     function correlation(i, j)
-        S = vec(sum(conj.(W[:, :, j]) .* W[:, :, i]; dims=2))
-        c = real.(E * S)
-        k = argmax(c)
-        return c[k], ℓs[k]
+        # (the name top, not best, keeps the closure from overwriting the result of the outer loop)
+        P   = conj.(W[:, :, j]) .* W[:, :, i]
+        top = (-Inf, 0.0, 0.0)
+        for (ℓy, y) in zip(ℓys, Y)
+            c = real.(E * (P * y))
+            k = argmax(c)
+            c[k] > top[1] && (top = (c[k], ℓxs[k], ℓy))
+        end
+        return top
     end
 
     distance(i, j) = sqrt(max(n²[i] + n²[j] - 2first(correlation(i, j)), 0) / n²[i])
     moving(i)      = distance(i, i + q) > motion
 
     # ---- best recurrence ----
-    best = (Inf, 0, 0, 0.0)
+    best = (Inf, 0, 0, 0.0, 0.0)
     for i in filter(moving, 1:size(W, 3) - last(lags)), m in lags
-        c, ℓ = correlation(i, i + m)
-        e    = sqrt(max(n²[i] + n²[i + m] - 2c, 0) / n²[i])
-        e < best[1] && (best = (e, i, m, ℓ))
+        c, ℓx, ℓy = correlation(i, i + m)
+        e         = sqrt(max(n²[i] + n²[i + m] - 2c, 0) / n²[i])
+        e < best[1] && (best = (e, i, m, ℓx, ℓy))
     end
 
     return best
 end
 
-# Initial orbit from the recurrence (i, m, ℓ) of a trajectory: the segment from W[:, :, i], over the
-# period T = m Δt, resampled on Ns rescaled times by integrating again with steps of T/(Ns × sub),
-# written in the frame drifting with c = -ℓ/T and copied to the device of the grid. Returns the
-# Orbit with parameters [log ω, c].
+# The coefficients of a vorticity field given as by OpenKolmogorovFlow.jl, Ω[ky, kx], ky in FFT order
+# along the first dimension and kx ≥ 0 along the second, on the active modes of the resolution n,
+# 0 ≤ kx ≤ n and |ky| ≤ n, in the layout of the model, (n+1) × (2n+1); the modes Ω lacks are zero,
+# and so is the mean.
+function coefficients(Ω::AbstractMatrix, n::Int)
+    K = size(Ω, 1)
+    ω̂ = zeros(ComplexF64, n + 1, 2n + 1)
+    for kx in 0:min(n, size(Ω, 2) - 1), ky in -n:n
+        abs(ky) < K ÷ 2 || continue
+        ω̂[kx + 1, ky >= 0 ? ky + 1 : 2n + 2 + ky] = Ω[mod(ky, K) + 1, kx + 1]
+    end
+    ω̂[1, 1] = 0
+    return ω̂
+end
+
+# Initial orbit from the recurrence (i, m, ℓx, ℓy) of a trajectory, on a grid g whose y-shift is ℓy:
+# the segment from W[:, :, i], over the period T = m Δt, resampled on Ns rescaled times by
+# integrating again with steps of T/(Ns × sub), written in the frame drifting with c = -ℓx/T and
+# copied to the device of the grid. Returns the Orbit with parameters [log ω, c].
 function initial_orbit(W::AbstractArray{<:Complex, 3}, g::KFGrid, Δt::Real, i::Int, m::Int,
-                       ℓ::Real; sub::Int=8)
+                       ℓx::Real; sub::Int=8)
     T = m * Δt
-    c = -ℓ / T
+    c = -ℓx / T
 
     # ---- the segment on Ns equispaced rescaled times ----
     seg = integrate(W[:, :, i], g, T / (g.Ns * sub), g.Ns * sub; every=sub)
@@ -588,5 +798,33 @@ function initial_orbit(W::AbstractArray{<:Complex, 3}, g::KFGrid, Δt::Real, i::
     t = (0:g.Ns - 1) .* (T / g.Ns)
     a = cat([shift(seg[:, :, l], c * t[l], g) for l in 1:g.Ns]...; dims=3)
 
-    return Orbit(KFField(g, g.array(a)), [log(2π / T), c])
+    return Orbit(KFField(g, g.array(eltype(g.forcing).(a))), [log(2π / T), c])
+end
+
+# Initial orbit from the seeds of a multiple-shooting solution, on a grid g whose y-shift is ℓy: the
+# states W[k] at the starts of N segments of equal duration T/N, each integrated over its segment
+# with steps of T/(Ns sub), sub made a multiple of N so that the segments start on steps, and
+# sampled on the Ns rescaled times, in the frame drifting with c = -ℓx/T. One seed is a trajectory
+# over the whole period. Returns the Orbit with parameters [log ω, c].
+function initial_orbit(W::AbstractVector{<:AbstractMatrix}, g::KFGrid, T::Real, ℓx::Real; sub::Int=8)
+    N   = length(W)
+    Ns  = g.Ns
+    c   = -ℓx / T
+    sub = N * cld(sub, N)
+    L   = Ns * sub ÷ N
+    dt  = T / (Ns * sub)
+
+    # ---- each segment from its seed; the states on the multiples of sub, in the moving frame ----
+    a = zeros(ComplexF64, g.n + 1, 2g.n + 1, Ns)
+    for k in 1:N
+        seg = integrate(W[k], g, dt, L; every=1)
+        for j in 0:L - 1
+            i = (k - 1) * L + j
+            i % sub == 0 || continue
+            l = i ÷ sub + 1
+            a[:, :, l] .= shift(seg[:, :, j + 1], c * (l - 1) * T / Ns, g)
+        end
+    end
+
+    return Orbit(KFField(g, g.array(eltype(g.forcing).(a))), [log(2π / T), c])
 end

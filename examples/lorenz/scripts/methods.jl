@@ -1,8 +1,8 @@
 # L-BFGS against the Newton–Krylov hookstep for the shortest periodic orbit of the Lorenz system.
 #
-#     julia --project=examples examples/lorenz/methods.jl
+#     julia --project=examples examples/lorenz/scripts/methods.jl
 #
-# writes methods.png, memory.png and hybrid.png in the folder figures/ next to this file.
+# writes methods.png and memory.png in docs/src/assets/lorenz/.
 #
 # The cost of the two methods is compared in operator applications, one nonlinear, linearised or
 # adjoint operator each, and in wall-clock time. The first measure is fair only if the three
@@ -15,15 +15,12 @@
 #
 # memory.png: the search from the far start with K = 40 and a limited number M of stored orbits: M/2
 # curvature pairs for L-BFGS, a Krylov space of M - 1 vectors for the hookstep.
-#
-# hybrid.png: the far starts, with L-BFGS until ‖r‖ < r_T and the hookstep from there, for a few
-# thresholds r_T, against the two methods alone.
 
 using Random
 using Printf
 using CairoMakie
 
-include("lorenz.jl")
+include("../lorenz.jl")
 
 import ReSolver: residual!, gradient!, jacobian!
 
@@ -108,20 +105,29 @@ function stopper(trace::Trace, tmax::Real)
     return info -> (trace(info); trace.time[end] > tmax)
 end
 
-# one search with a method, from y, for at most tmax seconds; the method is run once briefly
-# first, so that the time does not include compilation
+# One search with a method, from y, for at most tmax seconds. The method is run once briefly first,
+# with the same callback, so that no time is spent compiling; a search that reaches the tolerance
+# is then run three times and the fastest kept, against the noise of the clock. Each run has a
+# system of its own, whose counters start from zero.
 function search(y::Orbit, method::Symbol, tol::Real, tmax::Real; memory::Int=10,
                 krylov_dim::Int=100)
-    trace = Trace()
-
     make(maxiter, callback) = method === :lbfgs ?
         LBFGS(; memory, maxiter, tol, verbose=false, callback) :
         NewtonHookstep(; krylov_dim, maxiter, tol, Δ=1, Δmax=100, verbose=false, callback)
 
-    solve!(copy(y), system(y), make(2, info -> false))
-    solve!(copy(y), system(y), make(1_000_000, stopper(trace, tmax)))
+    # ---- compilation ----
+    solve!(copy(y), system(y), make(2, stopper(Trace(), tmax)))
 
-    return trace
+    # ---- timed runs ----
+    best = Trace()
+    for run in 1:3
+        trace = Trace()
+        solve!(copy(y), system(y), make(1_000_000, stopper(trace, tmax)))
+        (run == 1 || trace.time[end] < best.time[end]) && (best = trace)
+        trace.res[end] < tol || break
+    end
+
+    return best
 end
 
 # name, initial orbit, tolerance and time limit
@@ -161,41 +167,6 @@ for M in budgets
         @printf "M = %3d, %-8s ‖r‖ = %.1e in %6d iterations, %7d operator applications, %6.3f s\n" M method t.res[end] length(t) - 1 applications(t.evaluations[end]) t.time[end]
     end
     flush(stdout)
-end
-
-
-# ============================================================================ #
-# Hybrid: L-BFGS until ‖r‖ < r_T, then the hookstep                            #
-# ============================================================================ #
-
-# the hybrid search from y: L-BFGS stopped at ‖r‖ < rT, then the hookstep, on the same system and
-# recorded in the same trace; both methods are run once briefly first, so that the time does not
-# include compilation
-function hybrid(y::Orbit, rT::Real, tol::Real, tmax::Real)
-    lbfgs(callback)    = LBFGS(maxiter=1_000_000, tol=rT, verbose=false, callback=callback)
-    hookstep(callback) = NewtonHookstep(krylov_dim=100, maxiter=1000, tol=tol, Δ=1, Δmax=100,
-                                        verbose=false, callback=callback)
-
-    solve!(copy(y), system(y), LBFGS(maxiter=2, verbose=false))
-    solve!(copy(y), system(y), NewtonHookstep(maxiter=2, verbose=false))
-
-    x     = copy(y)
-    F     = system(y)
-    trace = Trace()
-    solve!(x, F, lbfgs(stopper(trace, tmax)))
-    nl    = length(trace)
-    solve!(x, F, hookstep(stopper(trace, tmax)))
-
-    return trace, nl
-end
-
-thresholds = (10.0, 5.0, 1.0, 0.1)
-hybrids    = Dict()
-for (sname, y, tol, tmax) in starts[[1, 3]], rT in thresholds
-    hybrids[(sname, rT)] = hybrid(y, rT, tol, tmax)
-
-    t, nl = hybrids[(sname, rT)]
-    @printf "%-36s hybrid, r_T = %4.1f: ‖r‖ = %.1e, %5d L-BFGS and %3d Newton iterations, %6d operator applications, %6.3f s\n" sname rT t.res[end] nl - 1 length(t) - nl - 1 applications(t.evaluations[end]) t.time[end]
 end
 
 
@@ -260,7 +231,7 @@ for (row, (sname, _, tol, _)) in enumerate(starts)
     row == 1 && axislegend(ax1; position=:lb)
 end
 
-save(joinpath(@__DIR__, "figures", "methods.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "lorenz", "methods.png"), fig)
 
 # ---- memory.png: residual against time for each budget, and the cost against the budget ----
 fig = Figure(size=(1300, 420), fontsize=13)
@@ -301,39 +272,4 @@ decades!(ax, ys; axis=:y)
 # the lower left corner is empty: no method reaches the tolerance with the smallest budgets fast
 axislegend(ax; position=:lb)
 
-save(joinpath(@__DIR__, "figures", "memory.png"), fig)
-
-# ---- hybrid.png: far starts, L-BFGS, hookstep and the hybrid with each threshold ----
-fig  = Figure(size=(1100, 800), fontsize=13)
-hmap = cgrad(:plasma, length(thresholds) + 1; categorical=true)
-
-for (row, (sname, _, tol, _)) in enumerate(starts[[1, 3]])
-    ax1 = Axis(fig[row, 1]; title=sname, xlabel="operator applications (each N, L or L⁺ counts 1)", ylabel="‖r‖",
-               xscale=log10, yscale=log10)
-    ax2 = Axis(fig[row, 2]; title=sname, xlabel="time [s]", ylabel="‖r‖", xscale=log10,
-               yscale=log10)
-
-    curves = Any[(rname, traces[(sname, rname)], colors[rname], :solid) for (rname, _) in runs]
-    for (k, rT) in enumerate(thresholds)
-        push!(curves, ("hybrid, r_T = $rT", first(hybrids[(sname, rT)]), hmap[k], :dash))
-    end
-
-    xs, ts, rs = Float64[], Float64[], Float64[]
-    for (label, tr, color, linestyle) in curves
-        n = max.(applications.(tr.evaluations), 1)
-        t = clamp.(tr.time, 1e-5, 10)   # the searches stop after 10 s
-        lines!(ax1, n, tr.res; color, linestyle, label)
-        lines!(ax2, t, tr.res; color, linestyle, label)
-        append!(xs, n); append!(ts, t); append!(rs, tr.res)
-    end
-    hlines!(ax1, tol; color=:black, linestyle=:dot)
-    hlines!(ax2, tol; color=:black, linestyle=:dot)
-
-    decades!(ax1, xs); decades!(ax2, ts)
-    decades!(ax1, [rs; tol]; axis=:y); decades!(ax2, [rs; tol]; axis=:y)
-    linkyaxes!(ax1, ax2)
-    # the legend in the lower left corner of the last panel, which the curves leave empty
-    row == 2 && axislegend(ax2; position=:lb, labelsize=11)
-end
-
-save(joinpath(@__DIR__, "figures", "hybrid.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "lorenz", "memory.png"), fig)

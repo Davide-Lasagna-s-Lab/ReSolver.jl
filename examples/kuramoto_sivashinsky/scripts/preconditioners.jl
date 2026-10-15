@@ -1,9 +1,9 @@
 # Analysis of the preconditioners for the orbit of the Kuramoto–Sivashinsky
 # equation of example.jl.
 #
-#     julia --project=examples examples/kuramoto_sivashinsky/preconditioners.jl
+#     julia --project=examples examples/kuramoto_sivashinsky/scripts/preconditioners.jl
 #
-# writes preconditioners.png in the folder figures/ next to this file. Five choices of B are
+# writes preconditioners.png in docs/src/assets/kuramoto_sivashinsky/. Five choices of B are
 # compared, all diagonal in Fourier, with multipliers on the mode (k, n):
 #
 #     none        1
@@ -16,14 +16,14 @@
 # 4 and 8, with the Newton system solved to 10⁻³, and the Jacobian actions needed to reach
 # ‖r‖ < 10⁻⁹ are recorded: below, the residual is limited by rounding errors amplified by the
 # fourth derivative, about 10⁻¹⁰ on the finest grid. The matrix of the preconditioned Jacobian 𝒥B⁻¹ at the converged orbit
-# is then formed column by column on the coarsest grid, and its eigenvalues and singular values
-# computed.
+# is then formed column by column on the coarsest grid, on the fields of zero mean, and its
+# eigenvalues and singular values computed.
 
 using Random
 using Printf
 using CairoMakie
 
-include("ks.jl")
+include("../ks.jl")
 
 import ReSolver: jacobian!
 
@@ -45,7 +45,7 @@ e, i, m, ℓ = recurrence(U, g, Δt, (12, 20))
 x          = initial_orbit(U, g, Δt, i, m, ℓ)
 
 F = System(KSNonlinear(g), KSLinearised(g), KSLinearised(g; adjoint=true), dds!, x;
-           linearise!, ddi=(ddx!,), B=KSPreconditioner(x))
+           linearise!, ddi=(ddx!,), B=KSPreconditioner(x), project=demean!)
 
 solve!(x, F, LBFGS(maxiter=300, verbose=false))
 solve!(x, F, NewtonHookstep(maxiter=20, krylov_dim=150, Δ=0.1, Δmax=10, tol=1e-11, verbose=false))
@@ -80,7 +80,7 @@ for f in factors, kind in kinds
     gf = grid(f)
     xf = start(f)
     Ff = System(KSNonlinear(gf), KSLinearised(gf), KSLinearised(gf; adjoint=true), dds!, xf;
-                linearise!, ddi=(ddx!,), B=preconditioner(kind, xf))
+                linearise!, ddi=(ddx!,), B=preconditioner(kind, xf), project=demean!)
 
     trace = Trace()
     solve!(copy(xf), Ff, NewtonHookstep(maxiter=12, krylov_dim=200, krylov_tol=1e-3, Δ=10,
@@ -99,17 +99,21 @@ end
 # Spectrum of the preconditioned Jacobian on the coarsest grid                 #
 # ============================================================================ #
 
-# the field values divided by √(Nx Ns), and the parameters: coordinates orthonormal for the inner
-# product, the mean over the grid points
-tovector(p::Orbit) = [vec(p.a.data) ./ sqrt(length(p.a.data)); p.p]
+# Coordinates orthonormal for the inner product, the mean over the grid points, on the space of the
+# search: the field values divided by √(Nx Ns), in an orthonormal basis Q of the fields of zero mean,
+# and the parameters. In the coordinates of all the grid values the masked mean would add a zero
+# singular value.
+Q = nullspace(ones(1, g.Nx * g.Ns))
+
+tovector(p::Orbit) = [Q' * vec(p.a.data) ./ sqrt(length(p.a.data)); p.p]
 
 fromvector(v::Vector, g::KSGrid) =
-    Orbit(KSField(g, reshape(v[1:end - 2] .* sqrt(g.Nx * g.Ns), g.Nx, g.Ns)), v[end - 1:end])
+    Orbit(KSField(g, reshape(Q * v[1:end - 2] .* sqrt(g.Nx * g.Ns), g.Nx, g.Ns)), v[end - 1:end])
 
-# the matrix of v ↦ 𝒥 B⁻¹ v at the orbit y, column by column
+# the matrix of v ↦ 𝒥 B⁻¹ v at the orbit y on the coarsest grid, column by column
 function matrix(y::Orbit, kind::Symbol)
     gy = y.a.g
-    N  = gy.Nx * gy.Ns + 2
+    N  = size(Q, 2) + 2
     B  = preconditioner(kind, y)
     Fy = System(KSNonlinear(gy), KSLinearised(gy), KSLinearised(gy; adjoint=true), dds!, y;
                 linearise!, ddi=(ddx!,), B)
@@ -211,4 +215,4 @@ for (j, kind) in enumerate(kinds)
     scatter!(ax, real.(λ), imag.(λ); color=colors[kind], markersize=7)
 end
 
-save(joinpath(@__DIR__, "figures", "preconditioners.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "preconditioners.png"), fig)

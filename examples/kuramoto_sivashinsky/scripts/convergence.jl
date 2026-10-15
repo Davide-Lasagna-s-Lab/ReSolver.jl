@@ -1,9 +1,9 @@
 # Convergence of the Newton–Krylov hookstep on the orbit of example.jl, at
 # increasing resolution, without and with the preconditioner.
 #
-#     julia --project=examples examples/kuramoto_sivashinsky/convergence.jl
+#     julia --project=examples examples/kuramoto_sivashinsky/scripts/convergence.jl
 #
-# writes convergence.png and tolerance.png in the folder figures/ next to this file. The orbit is
+# writes convergence.png and tolerance.png in docs/src/assets/kuramoto_sivashinsky/. The orbit is
 # first converged at the resolution of the example; it is then interpolated to grids refined by 1,
 # 2, 4 and 8 in both space and rescaled time, its log-frequency and drift speed perturbed by 0.01
 # and its field by 1% on the lowest modes, so that every search starts close to the solution with a
@@ -21,7 +21,7 @@ using Random
 using Printf
 using CairoMakie
 
-include("ks.jl")
+include("../ks.jl")
 
 Random.seed!(1)
 
@@ -41,7 +41,7 @@ e, i, m, ℓ = recurrence(U, g, Δt, (12, 20))
 x          = initial_orbit(U, g, Δt, i, m, ℓ)
 
 F = System(KSNonlinear(g), KSLinearised(g), KSLinearised(g; adjoint=true), dds!, x;
-           linearise!, ddi=(ddx!,), B=KSPreconditioner(x))
+           linearise!, ddi=(ddx!,), B=KSPreconditioner(x), project=demean!)
 
 solve!(x, F, LBFGS(maxiter=300, verbose=false))
 solve!(x, F, NewtonHookstep(maxiter=20, krylov_dim=150, Δ=0.1, Δmax=10, tol=1e-11, verbose=false))
@@ -71,7 +71,7 @@ function search(f::Int, name::String, krylov_tol::Real; maxiter::Int)
     xf = start(f)
     B  = name == "preconditioner" ? KSPreconditioner(xf) : I
     Ff = System(KSNonlinear(gf), KSLinearised(gf), KSLinearised(gf; adjoint=true), dds!, xf;
-                linearise!, ddi=(ddx!,), B)
+                linearise!, ddi=(ddx!,), B, project=demean!)
 
     trace = Trace()
     solve!(copy(xf), Ff, NewtonHookstep(; maxiter, krylov_dim=200, krylov_tol, Δ=10, Δmax=100, tol,
@@ -208,7 +208,7 @@ Legend(fig[3, 1:3],
        [["$(r.size[1]) × $(r.size[2])" for r in runs if r.name == "preconditioner"]; collect(keys(style))];
        orientation=:horizontal, framevisible=false)
 
-save(joinpath(@__DIR__, "figures", "convergence.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "convergence.png"), fig)
 
 
 # ============================================================================ #
@@ -252,4 +252,4 @@ Legend(fig[2, 1:3],
        ["$(grid(f).Nx) × $(grid(f).Ns), preconditioner" for f in factors];
        orientation=:horizontal, framevisible=false)
 
-save(joinpath(@__DIR__, "figures", "tolerance.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "tolerance.png"), fig)

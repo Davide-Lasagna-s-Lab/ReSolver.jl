@@ -2,4 +2,9 @@ Manifest.toml
 */Manifest.toml
 notes/
 docs/build/
-docs/src/assets/
+examples/kolmogorov/data/
+examples/kolmogorov/results/
+examples/kolmogorov/upo/
+examples/kolmogorov/scripts/*
+!examples/kolmogorov/scripts/example_figure.jl
+docs/src/assets/*/hybrid.png

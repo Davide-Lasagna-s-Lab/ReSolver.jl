@@ -7,7 +7,7 @@
 #
 #     julia --project=examples examples/kuramoto_sivashinsky/example.jl
 #
-# writes example.png in the folder figures/ next to this file.
+# writes example.png in docs/src/assets/kuramoto_sivashinsky/.
 
 using Random
 using Printf
@@ -41,9 +41,10 @@ lin = KSLinearised(g)
 adj = KSLinearised(g; adjoint=true)
 
 # ---- search: hookstep without and with the jacobian preconditioner, Newton systems solved to
-#      10⁻³; without, the search makes no progress and is stopped after 10 iterations ----
+#      10⁻³; without, the search makes no progress and is stopped after 10 iterations. The
+#      projection demean! removes the mean, and with it the Galilean family of solutions ----
 runs = map((("no preconditioner", I, 10), ("preconditioner", KSPreconditioner(x₀; kind=:jacobian), 50))) do (name, B, maxiter)
-    F     = System(nl, lin, adj, dds!, x₀; linearise!, ddi=(ddx!,), B)
+    F     = System(nl, lin, adj, dds!, x₀; linearise!, ddi=(ddx!,), B, project=demean!)
     x     = copy(x₀)
     trace = Trace()
 
@@ -143,4 +144,4 @@ linkyaxes!(newton...)
 # ---- the orbits take a little more room than the convergence rows ----
 rowsize!(fig.layout, 1, Relative(0.4))
 
-save(joinpath(@__DIR__, "figures", "example.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "docs", "src", "assets", "kuramoto_sivashinsky", "example.png"), fig)

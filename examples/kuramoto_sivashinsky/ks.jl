@@ -20,6 +20,7 @@
 #     KSNonlinear, KSLinearised        N(u), its linearisation and adjoint
 #     linearise!(op, u)                linearisation point of KSLinearised
 #     KSPreconditioner                 diagonal Fourier preconditioner
+#     demean!(u)                       projection on the fields of zero mean
 #     odd!(u)                          projection on the odd fields, u(-x) = -u(x)
 #     resample(u, g)                   spectral interpolation to another grid
 #     integrate, recurrence            time integration (ETDRK4) and near-recurrences
@@ -180,15 +181,10 @@ end
 # Operators                                                                    #
 # ============================================================================ #
 
-# The mean of u. KS is Galilean invariant, u(x, t) → u(x - Ct, t) + C, and conserves the mean of u:
-# adding a constant to an orbit and subtracting it from the drift speed gives another solution, a
-# null direction of the Newton system that the phase conditions do not remove. The operators below
-# pin the mean instead: N(u) is the KS right-hand side minus the mean ⟨u⟩, whose mean component, zero
-# for KS, makes the mean component of the residual equal to ⟨u⟩. Its zeros are the KS solutions of
-# zero mean, and the Jacobian is nonsingular. The pinning term is self-adjoint, and enters the
-# linearised operator and its adjoint as -⟨v⟩.
+# The operators are those of KS. Their output has zero mean for every input, and the search removes
+# the mean with the projection demean! (see Projections below).
 
-# N(u) = (k² - k⁴) û - ½ ∂x(u²) - ⟨u⟩
+# N(u) = (k² - k⁴) û - ½ ∂x(u²)
 struct KSNonlinear{G<:KSGrid}
      g::G                     # grid
      w::KSField{G}            # scratch, u²
@@ -208,17 +204,13 @@ function (op::KSNonlinear)(out::KSField, u::KSField)
     transform!(op.û, u)
     transform!(op.ŵ, op.w)
 
-    # ---- linear part and advection, mean pinned: the mode k = n = 0 becomes -⟨u⟩ ----
-    mean = op.û.data[1, 1]
-
-    op.û.data     .= g.λ .* op.û.data .- (im .* g.k ./ 2) .* op.ŵ.data
-    op.û.data[1, 1] -= mean
+    # ---- linear part and advection ----
+    op.û.data .= g.λ .* op.û.data .- (im .* g.k ./ 2) .* op.ŵ.data
 
     return transform!(out, op.û)
 end
 
-# linearisation about U, L v = (k² - k⁴) v - ∂x(U v) - ⟨v⟩, and its adjoint
-# L⁺ w = (k² - k⁴) w + U ∂x w - ⟨w⟩
+# linearisation about U, L v = (k² - k⁴) v - ∂x(U v), and its adjoint L⁺ w = (k² - k⁴) w + U ∂x w
 struct KSLinearised{G<:KSGrid}
           g::G                     # grid
           U::KSField{G}            # linearisation point, set by linearise!
@@ -249,15 +241,12 @@ function (op::KSLinearised)(out::KSField, v::KSField)
 
     transform!(op.ŵ, op.w)
 
-    # ---- linear part and advection, mean pinned ----
-    mean = op.v̂.data[1, 1]
-
+    # ---- linear part and advection ----
     if op.adjoint
         op.v̂.data .= g.λ .* op.v̂.data .+ op.ŵ.data
     else
         op.v̂.data .= g.λ .* op.v̂.data .- (im .* g.k) .* op.ŵ.data
     end
-    op.v̂.data[1, 1] -= mean
 
     return transform!(out, op.v̂)
 end
@@ -269,11 +258,12 @@ linearise!(op::KSLinearised, u::KSField) = (op.U.data .= u.data; op)
 # Preconditioner                                                               #
 # ============================================================================ #
 
-# Diagonal preconditioner in Fourier, frozen at ω₀ and c₀: the field coefficient of the mode (k, n) is
-# divided by one of four multipliers,
+# Diagonal preconditioner in Fourier, frozen at the frequency ω₀ and the drift speed c₀ of the initial
+# orbit x₀: the field coefficient of the mode (k, n) is divided by one of four multipliers,
 #
 #     kind = :jacobian    i(ω₀ n - c₀ k) + k⁴ - k², the linear space-time operator about the mean
-#                         state u = 0, with 1 on the mean, where the pinning term acts
+#                         state u = 0, with 1 on the mean, where it vanishes; the projection
+#                         demean! removes that mode
 #     kind = :linear      1 + |i(ω₀ n - c₀ k) + k⁴ - k²|, the size of the same operator
 #     kind = :frequency   1 + |ω₀ n - c₀ k|, the size of the time derivative in the moving frame
 #     kind = :viscous     1 + k⁴, the size of the fourth-order dissipation
@@ -297,13 +287,14 @@ struct KSPreconditioner{G<:KSGrid}
         n  = transpose(g.n)
 
         # ---- field ----
-        A = @. im * (ω₀ * n - c₀ * g.k) + g.k^4 - g.k^2
+        λ = @. im * (ω₀ * n - c₀ * g.k) + g.k^4 - g.k^2
 
-        β = kind === :jacobian  ? A :
-            kind === :linear    ? @.(1 + abs(A) + 0im) :
+        β = kind === :jacobian  ? λ :
+            kind === :linear    ? @.(1 + abs(λ) + 0im) :
             kind === :frequency ? @.(1 + abs(ω₀ * n - c₀ * g.k) + 0im) :
                                   @.(1 + g.k^4 + 0 * n + 0im)
 
+        # λ₀₀ = 0 on the mean: any nonzero divisor will do, since demean! removes that mode
         kind === :jacobian && (β[1, 1] = 1)
 
         # ---- parameters ----
@@ -339,13 +330,27 @@ end
 
 
 # ============================================================================ #
-# Symmetry                                                                     #
+# Projections                                                                  #
 # ============================================================================ #
+
+# Projection on the fields of zero space-time mean, P u = u - ⟨u⟩, to be passed as `project` to a
+# System. KS is Galilean invariant, u(x, t) → u(x - Ct, t) + C: adding a constant to an orbit and to
+# the drift speed gives another solution, a null direction of the Newton system that the phase
+# conditions do not remove. The right-hand side is a sum of x-derivatives, so its mean is zero for
+# every u, and the equation of the mean, the mode k = n = 0, is void. Both defects lie along the
+# constant field, and removing the mean removes both. The inner product is the mean over the grid
+# points, so subtracting the mean over the grid points is an orthogonal projection.
+function demean!(u::KSField)
+    u.data .-= sum(u.data) / length(u.data)
+
+    return u
+end
 
 # Projection on the odd fields, u(-x, s) = -u(x, s): the fields fixed by the reflection
 # u(x) → -u(-x), under which the KS equation is equivariant, (P u)(x) = (u(x) - u(-x))/2. On the
 # grid x_j = (j - 1) L/Nx the reflection maps the point j to j′ = Nx - j + 2, modulo Nx, and fixes
-# x = 0, where P u vanishes. P is an orthogonal projection in the inner product of the fields.
+# x = 0, where P u vanishes. P is an orthogonal projection in the inner product of the fields. Odd
+# fields have zero mean, so odd! removes the mean too and replaces demean!.
 function odd!(u::KSField)
     Nx = u.g.Nx
 

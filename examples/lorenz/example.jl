@@ -5,7 +5,7 @@
 #
 #     julia --project=examples examples/lorenz/example.jl
 #
-# writes example.png in the folder figures/ next to this file.
+# writes example.png in docs/src/assets/lorenz/.
 
 using Printf
 using CairoMakie
@@ -62,4 +62,4 @@ for (orbit, color) in zip(orbits, (:orange, :royalblue, :crimson))
 end
 axislegend(ax; position=:rt)
 
-save(joinpath(@__DIR__, "figures", "example.png"), fig)
+save(joinpath(@__DIR__, "..", "..", "docs", "src", "assets", "lorenz", "example.png"), fig)
