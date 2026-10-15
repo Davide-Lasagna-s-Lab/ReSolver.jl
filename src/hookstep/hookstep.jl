@@ -172,8 +172,10 @@ function solve!(     x::Orbit,
             H[end, end] <= 1e-12 * β && break
         end
 
-        # hookstep (3) in the final space
-        y, at_boundary = _hookstep(H, g, Δ)
+        # hookstep (3) in the final space, from the SVD of H, which the shorter hooksteps of rejected
+        # trials reuse, since the space does not change
+        SH             = svd(H)
+        y, at_boundary = _hookstep(SH, g, Δ)
 
         # ---- trust region: accept the step, or shrink Δ and solve (3) again ----
         ρ        = 0.0
@@ -215,7 +217,7 @@ function solve!(     x::Orbit,
                 objective(F, x)
                 return x
             end
-            y, at_boundary = _hookstep(H, g, Δ)
+            y, at_boundary = _hookstep(SH, g, Δ)
             used      = Δ
             rejected += 1
         end
@@ -274,9 +276,12 @@ end
 # step and turning it towards steepest descent. If the least-squares solution lies inside the trust
 # region it is the answer; otherwise μ is the root of ‖y(μ)‖ = Δ, which decreases monotonically in
 # μ and is found by bisection on [0, ‖p‖ max(d) / Δ], an interval where ‖y(μ)‖ ≤ ‖p‖ max(d) / μ
-# guarantees a sign change. Returns y and whether it lies on the boundary.
-function _hookstep(H::Matrix, g::Vector, Δ::Real)
-    U, d, V = svd(H)
+# guarantees a sign change. Returns y and whether it lies on the boundary. The SVD of H may be given
+# instead of H, to be reused for several radii in the same space.
+_hookstep(H::Matrix, g::Vector, Δ::Real) = _hookstep(svd(H), g, Δ)
+
+function _hookstep(SH::SVD, g::Vector, Δ::Real)
+    U, d, V = SH
     p       = U' * g
 
     # ---- ‖y(μ)‖ - Δ, decreasing in μ ----
