@@ -301,6 +301,36 @@ end
 end
 
 
+@testset "Krylov recycling                                        " begin
+    # ---- with Krylov spaces that solve every Newton system exactly and every full step accepted, the
+    #      steps are Newton's and do not depend on the recycled directions: the same iterates with and
+    #      without them (on the zero-mean fields, where the Jacobian is nonsingular) ----
+    Fd       = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), project=demean!)
+    exact(k) = NewtonHookstep(maxiter=3, krylov_dim=400, krylov_tol=1e-13, Δ=1e8, Δmax=1e8, eta=-Inf,
+                              recycle=k, verbose=false)
+    y₀ = copy(x)
+    y₁ = copy(x)
+    solve!(y₀, Fd, exact(0))
+    solve!(y₁, Fd, exact(8))
+    d  = similar(x)
+    d .= y₀ .- y₁
+
+    @test norm(d) / norm(y₀) < 1e-8
+
+    # ---- with the usual inexact solves, recycling still reduces the residual, in flexible GMRES and
+    #      not, and keeps the search on the invariant subspace ----
+    FB = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x), project=demean!)
+    for flexible in (false, true)
+        y  = copy(x)
+        R₀ = objective(FB, y)
+        solve!(y, FB, NewtonHookstep(; maxiter=4, krylov_dim=30, recycle=10, flexible, verbose=false))
+
+        @test objective(FB, y) < R₀
+        @test abs(sum(y.a.data)) / norm(y.a) < 1e-10
+    end
+end
+
+
 # the identity, counting the calls of relinearise!
 struct CountingPreconditioner
     calls::Base.RefValue{Int} # number of calls of relinearise!
