@@ -1,4 +1,4 @@
-# Backtracking Armijo line search, from ResolverOptimAlgorithms.
+# Backtracking Armijo line search.
 #
 # Starting from a unit step, the step α along the direction p is halved until
 #

@@ -18,12 +18,13 @@ nl  = KSNonlinear(g)
 lin = KSLinearised(g)
 adj = KSLinearised(g; adjoint=true)
 
-# a random field of unit amplitude, with frequency ω and drift speed c
+# a random field of unit amplitude, and a random orbit with frequency ω and drift speed c, whose
+# field has zero mean, as in the searches, which remove the mean with demean!
 random_field() = KSField(g, randn(g.Nx, g.Ns))
-random_orbit(ω, c...) = Orbit(random_field(), [log(ω), c...])
+random_orbit(ω, c...) = Orbit(demean!(random_field()), [log(ω), c...])
 
 x = random_orbit(0.4, 0.2)
-F = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,))
+F = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), project=demean!)
 
 
 @testset "KS model                                                " begin
@@ -96,6 +97,52 @@ end
 end
 
 
+@testset "Jacobian-free system                                    " begin
+    Ff = System(nl, dds!, x; ddi=(ddx!,), project=demean!)
+    δ  = random_orbit(0.7, -0.3)
+
+    # ---- the finite-difference Jacobian action is close to the exact one ----
+    F.linearise!(F.lin, x.a)
+    Ff.linearise!(Ff.lin, x.a)
+    Jδ  = jacobian!(similar(x), F, x, δ)
+    Jfδ = jacobian!(similar(x), Ff, x, δ)
+    d   = similar(x)
+    d  .= Jδ .- Jfδ
+
+    @test norm(d) / norm(Jδ) < 1e-6
+
+    # ---- central differences are exact up to rounding for the quadratic operator of KS ----
+    Fc = System(nl, dds!, x; difference=:central, ddi=(ddx!,), project=demean!)
+    Fc.linearise!(Fc.lin, x.a)
+    d .= Jδ .- jacobian!(similar(x), Fc, x, δ)
+
+    @test norm(d) / norm(Jδ) < 1e-9
+    @test_throws ArgumentError System(nl, dds!, x; difference=:backward, ddi=(ddx!,))
+
+    # ---- the residual is the same ----
+    @test objective(Ff, x) == objective(F, x)
+
+    # ---- the hookstep descends, L-BFGS needs the adjoint ----
+    y  = copy(x)
+    R₀ = objective(Ff, y)
+    solve!(y, Ff, NewtonHookstep(maxiter=3, verbose=false))
+
+    @test objective(Ff, y) < R₀
+    @test_throws ArgumentError solve!(copy(x), Ff, LBFGS(maxiter=3, verbose=false))
+
+    # ---- with the linearised operator and no adjoint, the hookstep runs as before ----
+    Fn = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), project=demean!)
+    y₁ = copy(x)
+    y₂ = copy(x)
+    solve!(y₁, F, NewtonHookstep(maxiter=3, verbose=false))
+    solve!(y₂, Fn, NewtonHookstep(maxiter=3, verbose=false))
+    d .= y₁ .- y₂
+
+    @test norm(d) == 0
+    @test_throws ArgumentError solve!(copy(x), Fn, LBFGS(maxiter=3, verbose=false))
+end
+
+
 @testset "Preconditioner                                          " begin
     B = KSPreconditioner(x)
     p = random_orbit(0.7, -0.3)
@@ -139,6 +186,25 @@ end
     r = residual!(similar(x), F, x)
 
     @test norm(jacobian_adjoint!(similar(x), F, x, r) .- g) / norm(g) < 1e-12
+end
+
+
+@testset "Zero-mean subspace                                      " begin
+    # ---- demean! is an orthogonal projection ----
+    u  = random_field()
+    v  = random_field()
+    Pu = demean!(copy(u))
+
+    @test abs(sum(Pu)) / length(Pu) < 1e-14
+    @test norm(demean!(copy(Pu)) .- Pu) < 1e-14
+    @test dot(Pu, v) ≈ dot(u, demean!(copy(v)))
+
+    # ---- the residual of an orbit of zero mean has zero mean, without the projection ----
+    y  = random_orbit(0.4, 0.2)
+    Fy = System(nl, lin, adj, dds!, y; linearise!, ddi=(ddx!,))
+    r  = residual!(similar(y), Fy, y)
+
+    @test abs(sum(r.a)) / length(r.a) < 1e-12 * norm(r.a)
 end
 
 
@@ -208,6 +274,19 @@ end
 
     @test norm(knl(similar(lam), lam)) < 1e-12
 
+    # ---- the factorised preconditioner rebuilt about another orbit is the one built about it ----
+    x₁ = Orbit(u, [log(0.7), 0.1])
+    x₂ = Orbit(w, [log(0.9), -0.3])
+    B₁ = KFPreconditioner(x₁; kind=:factorised, σ=2.0, inner=3)
+    B₂ = KFPreconditioner(x₂; kind=:factorised, σ=2.0, inner=3)
+    ReSolver.relinearise!(B₁, x₁)
+    ReSolver.relinearise!(B₁, x₂)
+    q  = Orbit(v, [0.3, -0.2])
+    z₁ = ReSolver.precondition!(similar(q), B₁, q)
+    z₂ = ReSolver.precondition!(similar(q), B₂, q)
+
+    @test norm(z₁ .- z₂) / norm(z₂) < 1e-12
+
     # ---- gradient and Jacobian of the residual of a relative periodic orbit ----
     xk = Orbit(u, [log(0.7), 0.1])
     Fk = System(knl, klin, kadj, dds!, xk; linearise!, ddi=(ddx!,), B=KFPreconditioner(xk))
@@ -222,10 +301,21 @@ end
 end
 
 
+# the identity, counting the calls of relinearise!
+struct CountingPreconditioner
+    calls::Base.RefValue{Int} # number of calls of relinearise!
+end
+
+ReSolver.precondition!(out::Orbit, ::CountingPreconditioner, p::Orbit)         = (out .= p)
+ReSolver.precondition_adjoint!(out::Orbit, ::CountingPreconditioner, p::Orbit) = (out .= p)
+ReSolver.relinearise!(B::CountingPreconditioner, x::Orbit)                     = (B.calls[] += 1; B)
+
 @testset "solve!                                                  " begin
-    FB = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x))
+    FB = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x),
+                project=demean!)
 
     for S in (F, FB), method in (LBFGS(maxiter=5, verbose=false),
+                                 LBFGS(memory=0, maxiter=5, verbose=false),
                                  NewtonHookstep(maxiter=3, verbose=false))
         y  = copy(x)
         R₀ = objective(S, y)
@@ -233,6 +323,31 @@ end
         solve!(y, S, method)
 
         @test objective(S, y) < R₀
+    end
+
+    # ---- with a fixed preconditioner the flexible hookstep takes the same steps, with fewer B⁻¹ ----
+    y₁ = copy(x)
+    y₂ = copy(x)
+    F₁ = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x),
+                project=demean!)
+    F₂ = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x),
+                project=demean!)
+    solve!(y₁, F₁, NewtonHookstep(maxiter=3, verbose=false))
+    solve!(y₂, F₂, NewtonHookstep(maxiter=3, verbose=false, flexible=true))
+    d = similar(y₁)
+    d .= y₁ .- y₂
+
+    @test norm(d) / norm(y₁) < 1e-8
+    @test F₂.evaluations.precondition < F₁.evaluations.precondition
+
+    # ---- the preconditioner is rebuilt at every Newton iteration, unless relinearise=false ----
+    for relinearise in (true, false)
+        B     = CountingPreconditioner(Ref(0))
+        trace = Trace()
+        solve!(copy(x), System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B, project=demean!),
+               NewtonHookstep(; maxiter=3, verbose=false, relinearise, callback=trace))
+
+        @test B.calls[] == (relinearise ? trace.iter[end] : 0)
     end
 
     # ---- the callback records the residual and can stop the search ----

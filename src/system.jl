@@ -32,6 +32,10 @@
 # `dot`, ⟨∂a, b⟩ = -⟨a, ∂b⟩, as Fourier derivatives are. The fields broadcast and support `dot`
 # and `similar`.
 #
+# Three constructors, by the operators given: N, L and L⁺ for both methods; N and L for the hookstep
+# alone, since only L-BFGS applies L⁺; N alone for the hookstep with L approximated by finite
+# differences of N (finitedifference.jl).
+#
 # The Newton system is square: the unknowns ω and cᵢ are matched by phase conditions that remove
 # the neutral directions of time and space translations,
 #
@@ -64,14 +68,33 @@ counts(e::Evaluations) = (residual     = e.residual,
 
 """
     System(nl, lin, adj, dds!, x::Orbit; linearise!, ddi=(), B=I, project=identity)
+    System(nl, lin, dds!, x::Orbit; linearise!, ddi=(), B=I, project=identity)
+    System(nl, dds!, x::Orbit; difference=:forward, ddi=(), B=I, project=identity)
 
-The system with nonlinear, linearised and adjoint operators `nl`, `lin` and `adj`, rescaled-time
-derivative `dds!` and function `linearise!(op, a)` setting the linearisation point of `lin` or
-`adj`, on orbits shaped like `x`, e.g. for the Kuramoto–Sivashinsky example
+The system with nonlinear operator `nl` and rescaled-time derivative `dds!`, on orbits shaped like
+`x`. The three constructors differ in the operators given.
+
+- With the linearised and adjoint operators `lin` and `adj`, and the function `linearise!(op, a)`
+  that sets the linearisation point of `lin` or `adj`, the system serves both
+  [`NewtonHookstep`](@ref) and [`LBFGS`](@ref).
+- Without the adjoint operator, it serves the hookstep only, since only L-BFGS applies the adjoint.
+  L-BFGS throws an `ArgumentError`.
+- With the nonlinear operator alone, the system is Jacobian-free. The hookstep applies the
+  linearised operator by finite differences of `nl`, with the step `ε = δ (1 + ‖a‖) / ‖b‖`.
+  `difference=:forward` takes `L b ≈ (N(a + ε b) - N(a)) / ε`, one evaluation of `nl` per Jacobian
+  action, with `δ` the square root of the machine precision of the fields. `difference=:central`
+  takes `L b ≈ (N(a + ε b) - N(a - ε b)) / 2ε`, of second order and two evaluations per action,
+  with `δ` the cube root. The residual is exact, so the converged orbit is as accurate as with the
+  linearised operator. L-BFGS throws an `ArgumentError`.
+
+For the Kuramoto–Sivashinsky example,
 
 ```julia
 System(KSNonlinear(g), KSLinearised(g), KSLinearised(g; adjoint=true), dds!, x;
-       linearise!, ddi=(ddx!,))
+       linearise!, ddi=(ddx!,))                                  # both methods
+System(KSNonlinear(g), KSLinearised(g), dds!, x; linearise!, ddi=(ddx!,))   # hookstep
+System(KSNonlinear(g), dds!, x; ddi=(ddx!,))                     # hookstep, Jacobian-free
+System(KSNonlinear(g), dds!, x; difference=:central, ddi=(ddx!,)) # second order
 ```
 
 `ddi` is a tuple of functions `dd!(out, a) -> out`, the derivatives along the directions of
@@ -80,14 +103,15 @@ translational symmetry in which the orbit drifts with an unknown speed, one per 
 of the problem forbids drifting.
 
 `B` is the preconditioner, an invertible operator on orbits for which
-[`precondition!`](@ref) and [`precondition_adjoint!`](@ref) are defined; the identity `I` by
+[`precondition!`](@ref) and [`precondition_adjoint!`](@ref) are defined. It is the identity `I` by
 default.
 
-`project(a) -> a` restricts the search to a subspace of fields invariant under the operators, the
-fields fixed by a symmetry of the problem: it projects the field `a` in place, orthogonally, onto
-the subspace. It is applied to the initial orbit, and to every residual, gradient, Jacobian action
-and application of the preconditioner, so that the search stays in the subspace despite rounding
-errors. The default `identity` does nothing.
+`project(a) -> a` restricts the search to a subspace of fields that the residual and the Jacobian
+map into itself. It projects the field `a` in place, orthogonally, onto the subspace. Examples are
+the fields fixed by a symmetry of the problem, and the fields of zero mean when the equation of the
+mean is void, as for Kuramoto–Sivashinsky. The projection is applied to the initial orbit, and to
+every residual, gradient, Jacobian action and application of the preconditioner, so that the
+search stays in the subspace despite rounding errors. The default `identity` does nothing.
 """
 struct System{NL, LIN, ADJ, DS, DD, LN, PB, PR, X, O<:Orbit}
             nl::NL           # nonlinear operator N(a)
@@ -141,6 +165,51 @@ struct System{NL, LIN, ADJ, DS, DD, LN, PB, PR, X, O<:Orbit}
                               residual,
                               Evaluations())
     end
+
+    # ---- without the adjoint operator: the hookstep only ----
+    System(        nl,
+                  lin,
+                 dds!,
+                    x::Orbit;
+           linearise!,
+                  ddi::Tuple=(),
+                    B=I,
+              project=identity) = System(nl,
+                                         lin,
+                                         nothing,
+                                         dds!,
+                                         x;
+                                         linearise!,
+                                         ddi,
+                                         B,
+                                         project)
+
+    # ---- with the nonlinear operator alone: L by finite differences, the hookstep only ----
+    function System(        nl,
+                          dds!,
+                             x::Orbit;
+                    difference::Symbol=:forward,
+                           ddi::Tuple=(),
+                             B=I,
+                       project=identity)
+
+        # ---- input checks ----
+        difference in (:forward, :central) ||
+            throw(ArgumentError("difference must be :forward or :central"))
+
+        # ---- assemble ----
+        lin = FiniteDifference(nl, x.a, difference === :central)
+
+        return System(nl,
+                      lin,
+                      nothing,
+                      dds!,
+                      x;
+                      linearise! = _linearise!,
+                      ddi,
+                      B,
+                      project)
+    end
 end
 
 
@@ -150,9 +219,9 @@ end
 """
     residual!(r::Orbit, F::System, x::Orbit) -> r
 
-The augmented residual at `x`: the field `r.a = ω ∂s a - Σᵢ cᵢ ∂ᵢ a - N(a)`, and zero parameters
-`r.p`, the phase conditions, which vanish at the current point. Minus `r` is the right-hand side
-of the Newton system.
+The augmented residual at `x`. Its field is `r.a = ω ∂s a - Σᵢ cᵢ ∂ᵢ a - N(a)`. Its parameters
+`r.p` are the phase conditions, which vanish at the current point, so they are zero. Minus `r` is
+the right-hand side of the Newton system.
 """
 function residual!(r::Orbit, F::System, x::Orbit)
     tmp = F.cache[1]
@@ -263,7 +332,7 @@ end
 """
     jacobian_adjoint!(out::Orbit, F::System, x::Orbit, w::Orbit) -> out
 
-The adjoint of [`jacobian!`](@ref) in the inner product of the orbits, applied to `w`: with
+The adjoint of [`jacobian!`](@ref) in the inner product of the orbits, applied to `w`. With
 `w = (w_a, [w_s, w₁, …])`, the field and the multipliers of the phase conditions,
 
     out.a = -ω ∂s w_a + Σᵢ cᵢ ∂ᵢ w_a - L⁺ w_a + w_s ∂s a + Σᵢ wᵢ ∂ᵢ a
@@ -271,7 +340,7 @@ The adjoint of [`jacobian!`](@ref) in the inner product of the orbits, applied t
 
 so that `⟨w, 𝒥 v⟩ = ⟨𝒥⁺ w, v⟩` for all orbits `v`. Assumes the linearisation point of the adjoint
 operator was set to `x` with `F.linearise!(F.adj, x.a)`. Needed by Krylov solvers of the
-least-squares problem `min ‖𝒥 δx + r‖`, such as LSQR; the gradient of `R = ½‖r‖²` is
+least-squares problem `min ‖𝒥 δx + r‖`, such as LSQR. The gradient of `R = ½‖r‖²` is
 `𝒥⁺ (r, 0)`.
 """
 function jacobian_adjoint!(out::Orbit, F::System, x::Orbit, w::Orbit)
@@ -324,7 +393,7 @@ end
 Search for an orbit of the system `F`, starting from `x` and overwriting it with the result.
 `method` is an [`LBFGS`](@ref) object, which minimises `½‖r‖²` and is robust far from a solution,
 or a [`NewtonHookstep`](@ref) object, which solves `r = 0` and converges fast close to one. Both
-hold their own options. A typical search runs L-BFGS first and refines with the hookstep:
+hold their own options. A typical search runs L-BFGS first and refines with the hookstep.
 
 ```julia
 solve!(x, F, LBFGS(maxiter=300))

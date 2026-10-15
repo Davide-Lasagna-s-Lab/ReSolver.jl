@@ -34,7 +34,11 @@
 # Preconditioning. With a preconditioner B the Arnoldi iteration runs on 𝒥 B⁻¹ and the step is
 # δx = B⁻¹ Qₙ y (right preconditioning): the residual of the model is unchanged, and the trust
 # region ‖y‖ ≤ Δ bounds ‖B δx‖, the length of the step in the metric of B (see the Preconditioning
-# page of the documentation).
+# page of the documentation). A preconditioner applied inexactly, by an inner iterative solver,
+# changes from one Arnoldi step to the next, and B⁻¹ Qₙ y is then not the step that the model
+# describes. With `flexible` the vectors zⱼ = B⁻¹ qⱼ of the Arnoldi steps are kept, 𝒥 Zₙ = Qₙ₊₁ H
+# holds whatever the preconditioner did, and the step is δx = Zₙ y (flexible GMRES, Saad 1993): the
+# model is exact again, at the cost of storing Zₙ, and no B⁻¹ is applied to form the steps.
 #
 # Trust-region update. The linear model predicts the reduction ½(β² - ‖g - H y‖²) of ½‖r‖²; the
 # step is evaluated by the ratio ρ of the actual reduction to the predicted one:
@@ -53,33 +57,49 @@
 
 
 """
-    NewtonHookstep(; krylov_dim=50, krylov_tol=1e-3, Δ=1e-2, Δmax=1, eta=1e-3,
-                     maxiter=20, tol=1e-10, verbose=true, io=stdout,
+    NewtonHookstep(; krylov_dim=50, krylov_tol=1e-3, Δ=1e-2, Δmax=1, eta=1e-3, maxiter=20,
+                     tol=1e-10, flexible=false, relinearise=true, verbose=true, io=stdout,
                      callback=info -> false)
 
-Newton–Krylov hookstep solution of `r = 0`, for [`solve!`](@ref). Krylov spaces grow up to
-dimension `krylov_dim`, or until the GMRES solution of the Newton system has a residual below
-`krylov_tol` times `‖r‖`, and the hookstep is then computed in that space; the
-trust-region radius starts at `Δ` and never exceeds `Δmax`; steps are accepted when the actual
-reduction of `½‖r‖²` is at least `eta` times the predicted one. Stops when `‖r‖ < tol`, after
-`maxiter` iterations, or when `callback(info)`, called at the start and after every iteration,
-returns `true`. `info` is a named tuple with the iteration `iter`, the orbit `x`, the residual
-norm `res`, the cumulative `evaluations` of the system, `krylov`, the relative residual of the
-GMRES solution of the Newton system after each Arnoldi step of the iteration, and `step`, `"newton"` or `"hook"`, the kind
-of the accepted step. A [`Trace`](@ref) records them. Fast near a
-solution.
+Newton–Krylov hookstep solution of `r = 0`, for [`solve!`](@ref). Fast near a solution.
+
+Each Newton iteration builds a Krylov space of the right-preconditioned Jacobian, up to dimension
+`krylov_dim` or until the GMRES solution of the Newton system has a residual below `krylov_tol`
+times `‖r‖`. The step is the hookstep in that space, the minimiser of the linear model within the
+trust region. The radius starts at `Δ` and never exceeds `Δmax`. A step is accepted when the actual
+reduction of `½‖r‖²` is at least `eta` times the predicted one.
+
+- `flexible=true` keeps the preconditioned Arnoldi vectors and forms the step from them (flexible
+  GMRES). Use it with a preconditioner that changes between Arnoldi steps, e.g. one applied by an
+  inner iterative solver. It doubles the memory of the Krylov space.
+- `relinearise=true` rebuilds the preconditioner about the current orbit at the start of every
+  Newton iteration, by [`relinearise!`](@ref), which does nothing for a preconditioner that defines
+  no method.
+- The search stops when `‖r‖ < tol`, after `maxiter` iterations, or when `callback(info)` returns
+  `true`. The callback is called at the start and after every iteration. `info` is a named tuple
+  with the iteration `iter`, the orbit `x`, the residual norm `res`, the cumulative `evaluations`
+  of the system, `krylov`, the relative residual of the GMRES solution after each Arnoldi step of
+  the iteration, `step`, `"newton"` or `"hook"`, the kind of the accepted step, and `trust`, a
+  named tuple with the trust-region radius `radius` with which the accepted step was computed, its
+  length `length` in the metric of the preconditioner, the ratio `ratio` of the actual to the
+  predicted reduction of `½‖r‖²`, and the number `rejected` of trial steps rejected before it. A
+  [`Trace`](@ref) records them.
+- `verbose=true` prints one line per iteration to `io`.
 """
-Base.@kwdef struct NewtonHookstep{CB}
-    krylov_dim::Int  = 50                        # largest dimension of the Krylov space
-    krylov_tol::Real = 1e-3                      # relative GMRES residual stopping the Krylov space
-             Δ::Real = 1e-2                      # initial trust-region radius
-          Δmax::Real = 1                         # largest trust-region radius
-           eta::Real = 1e-3                      # smallest actual/predicted reduction to accept
-       maxiter::Int  = 20                        # largest number of Newton iterations
-           tol::Real = 1e-10                     # stop when ‖r‖ < tol
-       verbose::Bool = true                      # print one line per iteration
-            io::IO   = stdout                    # where to print
-      callback::CB   = info -> false             # called every iteration; true stops
+Base.@kwdef struct NewtonHookstep
+    krylov_dim::Int      = 50            # largest dimension of the Krylov space
+    krylov_tol::Real     = 1e-3          # relative GMRES residual stopping the Krylov space
+             Δ::Real     = 1e-2          # initial trust-region radius
+          Δmax::Real     = 1             # largest trust-region radius
+           eta::Real     = 1e-3          # smallest actual/predicted reduction to accept
+       maxiter::Int      = 20            # largest number of Newton iterations
+           tol::Real     = 1e-10         # stop when ‖r‖ < tol
+      flexible::Bool     = false         # keep B⁻¹ qⱼ: B⁻¹ may change between Arnoldi steps
+   relinearise::Bool     = true          # rebuild B about the orbit at every Newton iteration
+       verbose::Bool     = true          # print one line per iteration
+            io::IO       = stdout        # where to print
+      # any callable, in a field of abstract type, so that solve! is compiled once for all callbacks
+      callback::Any      = info -> false # called every iteration; true stops
 end
 
 
@@ -91,7 +111,8 @@ function solve!(     x::Orbit,
                 method::NewtonHookstep)
 
     # Δ is the trust-region radius: it starts from the option and changes at every iteration
-    (; krylov_dim, krylov_tol, Δ, Δmax, eta, maxiter, tol, verbose, io, callback) = method
+    (; krylov_dim, krylov_tol, Δ, Δmax, eta, maxiter, tol, flexible, relinearise, verbose, io,
+       callback) = method
 
     # ---- workspace ----
     b  = similar(x) # right-hand side of (1), (-r, 0): no phase condition on the step
@@ -106,23 +127,29 @@ function solve!(     x::Orbit,
 
     verbose && _print_newton_header(io)
     verbose && _print_newton_row(io, 0, R, frequency(x), Δ, NaN, 0, NaN, "", 0)
-    stop = callback(_info(0, x, R, F))
+    stop = callback(_info(0, x, R, F, Float64[], "", (radius=Δ, length=NaN, ratio=NaN, rejected=0)))
 
     for iter in 1:maxiter
         (stop || sqrt(2R) < tol) && break
 
         # ---- Newton system (1) at x ----
-        # the Jacobian acts about x: set the linearisation point of the operators
+        # the Jacobian acts about x: set the linearisation point of the operators, and of the
+        # preconditioner if it follows the orbit
         F.linearise!(F.lin, x.a)
+        relinearise && relinearise!(F.B, x)
 
         residual!(b, F, x)
         b .*= -1
         β = norm(b)
 
         # ---- Krylov space, one Arnoldi step at a time ----
-        # right preconditioning: the Arnoldi operator is 𝒥 B⁻¹, and the step δx = B⁻¹ z
+        # right preconditioning: the Arnoldi operator is 𝒥 B⁻¹, and the step δx = B⁻¹ z; flexible:
+        # the operator keeps each B⁻¹ qⱼ in Z, and the step is δx = Z y
         # Arnoldi normalises its starting vector in place, hence the copy of b
-        A!  = (out, v) -> jacobian!(out, F, x, _precondition!(w, F, v))
+        Z   = typeof(x)[]
+        A!  = flexible ?
+              (out, v) -> (push!(Z, _precondition!(similar(x), F, v)); jacobian!(out, F, x, Z[end])) :
+              (out, v) -> jacobian!(out, F, x, _precondition!(w, F, v))
         arn = ArnoldiIteration(A!, copy(b))
         g   = [β]
 
@@ -151,10 +178,15 @@ function solve!(     x::Orbit,
         # ---- trust region: accept the step, or shrink Δ and solve (3) again ----
         ρ        = 0.0
         rejected = 0 # trial steps rejected before the accepted one
+        used     = Δ # the radius of the hookstep that is finally accepted
         while true
             # step in the full space and trial point
-            lincomb!(z, arn.Q, y)
-            _precondition!(δx, F, z)
+            if flexible
+                lincomb!(δx, Z, y)
+            else
+                lincomb!(z, arn.Q, y)
+                _precondition!(δx, F, z)
+            end
             xn .= x .+ δx
 
             # actual and predicted reductions of ½‖r‖²
@@ -184,6 +216,7 @@ function solve!(     x::Orbit,
                 return x
             end
             y, at_boundary = _hookstep(H, g, Δ)
+            used      = Δ
             rejected += 1
         end
 
@@ -192,7 +225,7 @@ function solve!(     x::Orbit,
         step = at_boundary ? "hook" : "newton"
 
         verbose && _print_newton_row(io, iter, R, frequency(x), Δ, ρ, size(H, 2), krylov[end], step, rejected)
-        stop = callback(_info(iter, x, R, F, krylov, step))
+        stop = callback(_info(iter, x, R, F, krylov, step, (radius=used, length=norm(y), ratio=ρ, rejected)))
     end
 
     # ---- leave the residual of x in the cache ----

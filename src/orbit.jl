@@ -5,12 +5,13 @@
 """
     Orbit(a, p)
 
-Unknowns of the search: the space-time field `a`, in any discretisation, and the parameter vector
-`p = [log ω, c₁, c₂, …]`, the logarithm of the frequency `ω = 2π/T` followed by one drift speed
-per drift direction of the [`System`](@ref). The frequency is
-searched through its logarithm, which keeps it positive and makes a step a relative change of
-`ω`; [`frequency`](@ref) returns `ω`. Orbits broadcast like vectors; `dot` adds the inner product
-of the fields to that of the parameters.
+Unknowns of the search. These are the space-time field `a`, in any discretisation, and the
+parameter vector `p = [log ω, c₁, c₂, …]`, the logarithm of the frequency `ω = 2π/T` followed by
+one drift speed per drift direction of the [`System`](@ref). The frequency is searched through its
+logarithm, which keeps it positive and makes a step a relative change of `ω`.
+[`frequency`](@ref) returns `ω`. Orbits broadcast like vectors, and `dot` adds the inner product
+of the fields to that of the parameters. The parameters are stored in the real type of the field,
+`Float32` for a single-precision field.
 
 ```julia
 x = Orbit(a, [log(2π/T), c])

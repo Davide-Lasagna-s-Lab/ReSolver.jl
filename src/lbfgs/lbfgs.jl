@@ -1,4 +1,4 @@
-# Limited-memory BFGS on R = ½‖r‖², from ResolverOptimAlgorithms.
+# Limited-memory BFGS on R = ½‖r‖².
 #
 # The search direction is -H g, with H the inverse-Hessian approximation of the last m curvature
 # pairs (s, y) = (x₊ - x, g₊ - g), applied by the two-loop recursion. A pair is kept only if its
@@ -8,6 +8,10 @@
 # With a preconditioner B the recursion works in the metric M = B⁺B: the initial inverse Hessian is
 # θ M⁻¹ instead of θ I, and steepest descent is -M⁻¹ g (see the Preconditioning page of the
 # documentation). With B = I both reduce to the plain recursion.
+#
+# With memory 0 the recursion has no pairs, and the direction is -θ M⁻¹ g, with θ from the newest
+# step: steepest descent in the metric of the preconditioner, scaled as in the spectral gradient
+# method of Barzilai & Borwein; the newest pair is kept for θ only.
 #
 # With a projection on a symmetric subspace in the System (keyword `project`), nothing is projected
 # here: the System projects the initial orbit, every gradient (gradient!, as 𝒥⁺ applied to the
@@ -20,22 +24,31 @@ const SCALE_BOUNDS = (1e-8, 1e8) # bounds of the initial scaling θ = ⟨y, s⟩
 
 
 """
-    LBFGS(; memory=10, maxiter=100, tol=1e-10, verbose=true, io=stdout,
-            callback=info -> false)
+    LBFGS(; memory=10, maxiter=100, tol=1e-10, verbose=true, io=stdout, callback=info -> false)
 
-L-BFGS minimisation of `½‖r‖²`, keeping `memory` curvature pairs, for [`solve!`](@ref). Stops when
-`‖r‖ < tol`, after `maxiter` iterations, or when `callback(info)`, called at the start and after
-every iteration, returns `true`. `info` is a named tuple with the iteration `iter`, the orbit `x`,
-the residual norm `res`, the cumulative `evaluations` of the system and `krylov`, empty here. A
-[`Trace`](@ref) records them. Robust far from a solution.
+L-BFGS minimisation of `½‖r‖²`, for [`solve!`](@ref). Robust far from a solution. The gradient
+comes from the adjoint operator, so the system must be built with it.
+
+The direction comes from the last `memory` curvature pairs, in the metric of the preconditioner of
+the system, and the step from a backtracking Armijo line search. With `memory=0` the method is
+steepest descent in the metric of the preconditioner, scaled by the newest step
+(Barzilai–Borwein).
+
+- The search stops when `‖r‖ < tol`, after `maxiter` iterations, or when `callback(info)` returns
+  `true`. The callback is called at the start and after every iteration. `info` is a named tuple
+  with the iteration `iter`, the orbit `x`, the residual norm `res` and the cumulative
+  `evaluations` of the system. Its fields `krylov` and `step` are empty here, and `trust` holds
+  `NaN` and 0. A [`Trace`](@ref) records them.
+- `verbose=true` prints one line per iteration to `io`.
 """
-Base.@kwdef struct LBFGS{CB}
-      memory::Int  = 10                        # largest number of curvature pairs
-     maxiter::Int  = 100                       # largest number of iterations
-         tol::Real = 1e-10                     # stop when ‖r‖ < tol
-     verbose::Bool = true                      # print one line per iteration
-          io::IO   = stdout                    # where to print
-    callback::CB   = info -> false             # called every iteration; true stops
+Base.@kwdef struct LBFGS
+        memory::Int      = 10            # largest number of curvature pairs
+       maxiter::Int      = 100           # largest number of iterations
+           tol::Real     = 1e-10         # stop when ‖r‖ < tol
+       verbose::Bool     = true          # print one line per iteration
+            io::IO       = stdout        # where to print
+      # any callable, in a field of abstract type, so that solve! is compiled once for all callbacks
+      callback::Any      = info -> false # called every iteration; true stops
 end
 
 
@@ -49,7 +62,7 @@ struct LBFGSMemory{X<:Orbit}
     α::Vector{Float64} # coefficients of the first loop
     q::X               # vector transformed by the first loop
     t::NTuple{2, X}    # scratch for the metric M⁻¹
-    m::Int             # largest number of pairs
+    m::Int             # largest number of pairs in the recursion; one is kept for θ if m = 0
 end
 
 LBFGSMemory(x::Orbit, m::Int) = LBFGSMemory(typeof(x)[],
@@ -67,8 +80,8 @@ function _push_pair!(mem::LBFGSMemory, s::Orbit, y::Orbit)
     # ---- cautious update ----
     ys <= max(eps(), CAUTIOUS * norm(s) * norm(y)) && return mem
 
-    # ---- limited memory ----
-    if length(mem.s) == mem.m
+    # ---- limited memory; the newest pair is kept for θ even with no memory ----
+    if length(mem.s) == max(mem.m, 1)
         popfirst!(mem.s)
         popfirst!(mem.y)
         popfirst!(mem.ρ)
@@ -81,9 +94,10 @@ function _push_pair!(mem::LBFGSMemory, s::Orbit, y::Orbit)
     return mem
 end
 
-# p = -H g, by the two-loop recursion in the metric of the preconditioner of F
+# p = -H g, by the two-loop recursion over the newest m pairs in the metric of the preconditioner
 function _direction!(p::Orbit, g::Orbit, mem::LBFGSMemory, F)
     n = length(mem.s)
+    k = n - min(n, mem.m) + 1 # oldest pair of the recursion
     t = mem.t
 
     # ---- no pairs yet: steepest descent in the metric, -M⁻¹ g ----
@@ -95,7 +109,7 @@ function _direction!(p::Orbit, g::Orbit, mem::LBFGSMemory, F)
 
     # ---- first loop, newest pair first ----
     mem.q .= g
-    for i in n:-1:1
+    for i in n:-1:k
         mem.α[i] = mem.ρ[i] * dot(mem.s[i], mem.q)
         mem.q .-= mem.α[i] .* mem.y[i]
     end
@@ -110,7 +124,7 @@ function _direction!(p::Orbit, g::Orbit, mem::LBFGSMemory, F)
     # ---- second loop, oldest pair first ----
     _metric_inverse!(p, F, mem.q, t[1])
     p .*= θ
-    for i in 1:n
+    for i in k:n
         β = mem.ρ[i] * dot(mem.y[i], p)
         p .+= (mem.α[i] - β) .* mem.s[i]
     end
@@ -129,6 +143,10 @@ function solve!(     x::Orbit,
                 method::LBFGS)
 
     (; memory, maxiter, tol, verbose, io, callback) = method
+
+    # ---- input checks ----
+    F.adj === nothing &&
+        throw(ArgumentError("L-BFGS needs the adjoint operator, not given to the System"))
 
     # ---- workspace ----
     mem = LBFGSMemory(x, memory)

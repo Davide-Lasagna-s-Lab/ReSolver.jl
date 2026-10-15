@@ -8,13 +8,16 @@
 #
 #     precondition!(out, B, p)            out = B⁻¹ p
 #     precondition_adjoint!(out, B, p)    out = B⁻⁺ p, with B⁻⁺ the adjoint of B⁻¹
+#     relinearise!(B, x)                  B rebuilt about the orbit x, optional
 #
-# A multiple of the identity, `I` by default, leaves both methods as without preconditioning.
+# A multiple of the identity, `I` by default, leaves both methods as without preconditioning. The
+# hookstep calls relinearise! at the start of every Newton iteration, with the current orbit; L-BFGS
+# never does, since its metric must stay fixed for the curvature pairs to make sense.
 
 """
     precondition!(out::Orbit, B, p::Orbit) -> out
 
-Apply the inverse of the preconditioner `B` to the orbit `p`: `out = B⁻¹ p`. Extend it, together
+Apply the inverse of the preconditioner `B` to the orbit `p`, `out = B⁻¹ p`. Extend it, together
 with [`precondition_adjoint!`](@ref), for each preconditioner type.
 """
 precondition!(out::Orbit, B::UniformScaling, p::Orbit) = (out .= p ./ B.λ)
@@ -22,10 +25,20 @@ precondition!(out::Orbit, B::UniformScaling, p::Orbit) = (out .= p ./ B.λ)
 """
     precondition_adjoint!(out::Orbit, B, p::Orbit) -> out
 
-Apply the adjoint of the inverse of the preconditioner `B` to the orbit `p`: `out = B⁻⁺ p`, in
+Apply the adjoint of the inverse of the preconditioner `B` to the orbit `p`, `out = B⁻⁺ p`, in
 the inner product of the orbits. For a self-adjoint `B` it is [`precondition!`](@ref).
 """
 precondition_adjoint!(out::Orbit, B::UniformScaling, p::Orbit) = (out .= p ./ conj(B.λ))
+
+"""
+    relinearise!(B, x::Orbit) -> B
+
+Rebuild the preconditioner `B` in place about the orbit `x`, its frequency, drift speeds and
+field. [`NewtonHookstep`](@ref) calls it at the start of every Newton iteration with the current
+orbit, unless `relinearise=false`. L-BFGS never calls it. The default does nothing, so a
+preconditioner that does not depend on the orbit, or the identity, needs no method.
+"""
+relinearise!(B, x::Orbit) = B
 
 # applications of B⁻¹ and B⁻⁺ through a System, counted, and projected back onto the invariant
 # subspace of the System, which a preconditioner that does not commute with the symmetry would leave
