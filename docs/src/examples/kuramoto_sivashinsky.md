@@ -165,36 +165,36 @@ iterations. Solid lines, linear preconditioner. Dashed lines, none.*
 
 | grid | unknowns | $\lVert r\rVert$, no preconditioner | Jacobian actions | $\lVert r\rVert$, linear preconditioner | Newton iterations | Jacobian actions | time |
 |---|---|---|---|---|---|---|---|
-| base | 1 619 | $5.5 \times 10^{-3}$ | 2400 | $1.6 \times 10^{-10}$ | 3 | 449 | 0.3 s |
-| $\times 2$ | 6 307 | $6.6 \times 10^{-3}$ | 2400 | $1.5 \times 10^{-10}$ | 3 | 462 | 1.5 s |
-| $\times 4$ | 24 899 | $1.2 \times 10^{-2}$ | 2400 | $1.6 \times 10^{-10}$ | 3 | 469 | 6.0 s |
-| $\times 8$ | 98 947 | $1.4 \times 10^{-2}$ | 2400 | $3.0 \times 10^{-10}$ | 3 | 475 | 26.8 s |
+| base | 1 619 | $5.4 \times 10^{-3}$ | 2400 | $3.4 \times 10^{-10}$ | 3 | 439 | 0.3 s |
+| $\times 2$ | 6 307 | $6.6 \times 10^{-3}$ | 2400 | $3.5 \times 10^{-10}$ | 3 | 450 | 1.4 s |
+| $\times 4$ | 24 899 | $1.2 \times 10^{-2}$ | 2400 | $3.3 \times 10^{-10}$ | 3 | 458 | 6.6 s |
+| $\times 8$ | 98 947 | $1.5 \times 10^{-2}$ | 2400 | $4.2 \times 10^{-10}$ | 3 | 463 | 29.1 s |
 
 *Final residual and cost, from $\lVert r\rVert = 1.6 \times 10^{-2}$. Without preconditioner the
 search is stopped after 12 Newton iterations.*
 
 With the preconditioner, Newton converges in 3 iterations on every grid. The cost in Jacobian
-actions grows by 6% over a 61-fold increase of the number of unknowns, so the method is
+actions grows by 5% over a 61-fold increase of the number of unknowns, so the method is
 mesh-independent. The computing time grows by factors between 4 and 5 between successive grids.
 This is close to the factor of four by which the number of unknowns grows, times the logarithm of
 the FFTs, so the work per unknown is nearly constant. The residual drops from $1.6 \times 10^{-2}$
-to $1.2 \times 10^{-4}$, $1.5 \times 10^{-7}$ and $2 \times 10^{-10}$. After the first step the
-convergence is linear with ratio $10^{-3}$, the tolerance of the inner solve, rather than
-quadratic. This is the behaviour of an inexact Newton method whose forcing term is constant
+to $1.0 \times 10^{-4}$, $3.5 \times 10^{-7}$ and $3 \times 10^{-10}$ to $4 \times 10^{-10}$.
+After the first step the convergence is linear with a ratio close to $10^{-3}$, the tolerance of the
+inner solve, rather than quadratic. This is the behaviour of an inexact Newton method whose forcing term is constant
 (Dembo, Eisenstat & Steihaug 1982). Each step reduces the residual of the linear model by $\tau$,
 and once the error of the linearisation, quadratic in the step, falls below that, $\tau$ sets the
 rate.
 
-Each inner solve takes 145 to 170 Arnoldi steps, and the curves of the four grids nearly coincide.
-They descend in stages, with plateaus, for instance at a relative residual of about $0.4$ during the
-first 70 steps of the third iteration. GMRES first resolves the eigenvalues of
+Each inner solve takes 141 to 168 Arnoldi steps, and the curves of the four grids nearly coincide.
+They descend in stages, with plateaus. In the second iteration, for instance, the relative residual
+stays above $0.3$ for the first 75 steps. GMRES first resolves the eigenvalues of
 $\mathcal{J}\mathcal{B}^{-1}$ that lie far from one, on the arcs towards $\pm\mathrm{i}$ described
 in [Preconditioners](#Preconditioners), and only then converges at the rate set by the cluster.
 These eigenvalues belong to the large scales, which are the same on every grid, hence the
 independence of the resolution.
 
 Without preconditioner, every inner solve exhausts the Krylov space of 200 vectors. In the first
-Newton iteration the relative residual of the Newton system stagnates between $0.45$ and $0.9$,
+Newton iteration the relative residual of the Newton system stagnates between $0.4$ and $0.95$,
 and in the following ones it stays close to one. The steps are almost useless. After 12 iterations
 and 2400 Jacobian actions the residual has dropped by a factor of three on the base grid, and
 hardly at all on the finest. For the Lorenz system the unpreconditioned solve succeeds as long as
@@ -213,14 +213,14 @@ the base grid.*
 | $\tau$ | Newton iterations | Jacobian actions, base | $\times 8$ | mean contraction of $\lVert r\rVert$ per iteration |
 |---|---|---|---|---|
 | 0.95 | not converged | — | — | — |
-| 0.9 | 128–134 | 2415 | 2627 | 0.88 |
-| 0.8 | 66–67 | 1513 | 1684 | 0.78 |
-| 0.5 | 23–24 | 924 | 1017 | 0.49 |
-| 0.3 | 14 | 770 | 806 | 0.31 |
-| 0.1 | 8 | 647 | 697 | 0.13 |
-| $10^{-2}$ | 4 | 482 | 509 | |
-| $10^{-3}$ | 3 | 449 | 475 | |
-| $10^{-4}$ | 3 | 517 | 548 | |
+| 0.9 | 128–130 | 2350 | 2556 | 0.88 |
+| 0.8 | 66–67 | 1548 | 1652 | 0.78 |
+| 0.5 | 23–24 | 934 | 1041 | 0.50 |
+| 0.3 | 14 | 758 | 831 | 0.31 |
+| 0.1 | 8 | 635 | 688 | 0.13 |
+| $10^{-2}$ | 4 | 477 | 504 | |
+| $10^{-3}$ | 3 | 439 | 463 | |
+| $10^{-4}$ | 3 | 518 | 548 | |
 | $\le 10^{-6}$ | 3 | 600 | 600 | |
 
 *Cost of $\lVert r\rVert < 10^{-9}$ from $\lVert r\rVert = 1.6 \times 10^{-2}$, linear
@@ -229,30 +229,31 @@ $(10^{-9} / 1.6 \times 10^{-2})^{1/n}$ over the $n$ iterations on the base grid.
 
 The number of Newton iterations depends on the tolerance and not at all on the grid. For loose
 tolerances it follows the theory of inexact Newton methods closely. The residual contracts by a
-factor equal to $\tau$ at every iteration, 0.88 for $\tau = 0.9$, 0.49 for $\tau = 0.5$ and 0.31
+factor equal to $\tau$ at every iteration, 0.88 for $\tau = 0.9$, 0.50 for $\tau = 0.5$ and 0.31
 for $\tau = 0.3$. The hookstep takes the full inexact Newton step, whose linear model reduces the
 residual by exactly $\tau$, and the linearisation error is negligible at these small residuals. For
 $\tau = 0.95$ the contraction is too weak to reach $10^{-9}$ within 200 iterations.
 
-The cost in Jacobian actions has a minimum at $\tau = 10^{-3}$ on every grid, 449 to 475 actions,
-and is flat around it. The tolerance $10^{-2}$ costs 7% more and $10^{-4}$ costs 15% more.
+The cost in Jacobian actions has a minimum at $\tau = 10^{-3}$ on every grid, 439 to 463 actions,
+and is flat around it. The tolerance $10^{-2}$ costs 9% more and $10^{-4}$ costs 18% more.
 Tightening the tolerance beyond $10^{-5}$ changes nothing. Each inner solve then fills the whole
 Krylov space of 200 vectors, and the cost saturates at $3 \times 200 = 600$ actions. These searches
 still converge, because 200 Arnoldi steps reduce the residual of the Newton system well below what
-Newton needs to converge in 3 iterations. Loosening the tolerance is costlier, up to five times the
+Newton needs to converge in 3 iterations. Loosening the tolerance is costlier, up to 5.5 times the
 minimum at $\tau = 0.9$. The minimum lies at a tighter tolerance than for the Lorenz system, where
 it was $10^{-4}$ with the jacobian preconditioner, but the reason is the same. With Newton
 converging in 3 or 4 iterations, a tighter inner solve buys nothing, and a looser one multiplies
 the iterations.
 
 The computing time behaves differently on the smallest grids. On the base grid the fastest searches
-use loose tolerances, $\tau$ between 0.3 and 0.7, at about 0.22 s against 0.52 s at $10^{-3}$.
+use loose tolerances, $\tau$ between 0.3 and 0.7, at about 0.20 s against 0.26 s at $10^{-3}$,
+although they need up to 2.7 times more actions.
 With 1 619 unknowns a Jacobian action is cheap. The time is dominated by the orthogonalisation of
 the Arnoldi vectors, whose cost grows with the square of the dimension of the Krylov space, and by
 the dense linear algebra of the hookstep. Many short Krylov spaces are then cheaper than a few long
 ones. As the grid is refined, the Jacobian actions become dominant and the minimum of the time moves
-to the minimum of the actions. On the finest grid the fastest searches use $\tau = 10^{-2}$ and
-$10^{-3}$, at 25 and 26 s, against 92 s at $\tau = 0.9$. For large problems, where the Jacobian
+to the minimum of the actions. On the finest grid the fastest searches use $\tau = 10^{-3}$ and
+$10^{-2}$, at 27 and 31 s, against 107 s at $\tau = 0.9$. For large problems, where the Jacobian
 action is the expensive operation, the count of actions is the relevant measure, and a tolerance
 between $10^{-2}$ and $10^{-4}$ is a safe choice.
 
