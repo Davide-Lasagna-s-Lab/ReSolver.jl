@@ -39,7 +39,7 @@ F = System(nonlinear!, LorenzLinearised(20), LorenzLinearised(20; adjoint=true),
 
 solve!(x, F, NewtonHookstep(maxiter=20, krylov_dim=40, Δ=1, Δmax=100, tol=1e-12, verbose=false))
 
-@printf "orbit: T = %.8f\n" 2π / ReSolverV2.frequency(x)
+@printf "orbit: T = %.8f\n" 2π / ReSolver.frequency(x)
 
 
 # ============================================================================ #

@@ -1,4 +1,4 @@
-# ReSolverV2.jl
+# ReSolver.jl
 
 *Space-time search for periodic and relative periodic orbits of dynamical systems.*
 
@@ -11,7 +11,7 @@ them is hard because they are unstable: integrating forward in time from a nearb
 shooting method does, amplifies every error exponentially over the period, and the longer or more
 unstable the orbit, the worse the problem.
 
-ReSolverV2 avoids time integration altogether. Consider a system
+ReSolver avoids time integration altogether. Consider a system
 
 ```math
 \partial_t u = N(u) ,
@@ -21,7 +21,7 @@ with ``u`` a function of time and of an arbitrary number of spatial coordinates,
 equivariant under translations along some of them. A relative periodic orbit of period ``T``
 repeats after ``T`` up to shifts ``\ell_i`` along these directions,
 ``u(x_i + \ell_i, t + T) = u(x_i, t)``; in the frame moving with the drift speeds ``c_i = -\ell_i/T``
-it is periodic, and a periodic orbit is the case without drift. ReSolverV2 treats the whole orbit as
+it is periodic, and a periodic orbit is the case without drift. ReSolver treats the whole orbit as
 a single unknown: the field over one period, written in terms of the rescaled time
 ``s = \omega t \in [0, 2\pi)``, together with the frequency ``\omega = 2\pi/T`` and the drift
 speeds ``c_i``. An orbit is a zero of the space-time residual
@@ -81,7 +81,7 @@ pre-periodic orbit of the system, traversed twice (see [Kuramoto–Sivashinsky e
 the details and the full analysis):
 
 ```julia
-using ReSolverV2
+using ReSolver
 include("examples/kuramoto_sivashinsky/ks.jl")
 
 g = KSGrid(22, 33, 49)                          # L = 22, 33 points in x, 49 in rescaled time

@@ -1,4 +1,4 @@
-# Two-dimensional Kolmogorov flow in space-time form, for ReSolverV2: the vorticity equation
+# Two-dimensional Kolmogorov flow in space-time form, for ReSolver: the vorticity equation
 #
 #     ∂t ω + u ∂x ω + v ∂y ω = (1/Re) ∇²ω - kf cos(kf y),     (x, y) ∈ [0, 2π)² periodic,
 #
@@ -30,7 +30,7 @@
 # the FFTs go through AbstractFFTs, and the operators use broadcasting and views only, no scalar
 # indexing. The initial guess is built on the CPU and copied to the device.
 #
-# The file provides what a ReSolverV2 System needs, and the pieces to build an initial guess:
+# The file provides what a ReSolver System needs, and the pieces to build an initial guess:
 #
 #     KFGrid(n, Ns; Re, kf, yshift,    grid: wavenumbers, mask, FFT plans, on the device
 #            array)
@@ -44,9 +44,9 @@
 
 using FFTW
 using LinearAlgebra
-using ReSolverV2
+using ReSolver
 
-import ReSolverV2: precondition!, precondition_adjoint!
+import ReSolver: precondition!, precondition_adjoint!
 
 
 # ============================================================================ #
@@ -421,7 +421,7 @@ struct KFPreconditioner{C}
 
         a₀ = x₀.a
         g  = a₀.g
-        ω₀ = ReSolverV2.frequency(x₀)
+        ω₀ = ReSolver.frequency(x₀)
         c₀ = length(x₀.p) > 1 ? x₀.p[2] : 0.0
 
         # ---- field; 1 on the mean mode ----

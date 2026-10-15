@@ -94,7 +94,7 @@ g_{c_i} = -\langle \partial_i u, r\rangle . \tag{5}
 
 Comparing (4) with the Jacobian of root finding, the gradient is the adjoint of that Jacobian
 applied to the residual with zero phase conditions, ``\nabla R = \mathcal{J}^+ (r, 0)``, and the code
-computes it so, with `ReSolverV2.jacobian_adjoint!`, the action of ``\mathcal{J}^+`` that Krylov
+computes it so, with `ReSolver.jacobian_adjoint!`, the action of ``\mathcal{J}^+`` that Krylov
 solvers of least-squares problems, such as LSQR, also need. One evaluation of ``R`` costs one
 nonlinear operator; one gradient costs in addition one adjoint operator, about the current orbit. The gradient is exact for the discretised problem when the
 discrete derivatives are exactly skew-adjoint and the adjoint operator is the exact adjoint of the

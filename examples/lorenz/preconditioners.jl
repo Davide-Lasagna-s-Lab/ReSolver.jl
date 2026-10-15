@@ -23,7 +23,7 @@ using CairoMakie
 
 include("lorenz.jl")
 
-import ReSolverV2: jacobian!, residual!, _hookstep
+import ReSolver: jacobian!, residual!, _hookstep
 
 
 # ============================================================================ #

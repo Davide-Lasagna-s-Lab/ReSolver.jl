@@ -50,7 +50,7 @@ runs = map((("no preconditioner", I, 10), ("preconditioner", KSPreconditioner(x�
     solve!(x, F, NewtonHookstep(; maxiter, krylov_dim=150, krylov_tol=1e-3, Δ=0.1, Δmax=10,
                                 tol=1e-11, verbose=false, callback=trace))
 
-    T = 2π / ReSolverV2.frequency(x)
+    T = 2π / ReSolver.frequency(x)
     @printf "%-18s ‖r‖ = %.2e in %2d Newton iterations, %4d Jacobian actions; T = %.4f, shift = %.4f\n" name trace.res[end] length(trace) - 1 trace.evaluations[end].jacobian T -x.p[2] * T
 
     (; name, x, trace)
@@ -85,7 +85,7 @@ end
 
 # the orbit over one period in the fixed frame, u(x', t) = a(x' - c t, ωt)
 function fixed_frame(x::Orbit)
-    T = 2π / ReSolverV2.frequency(x)
+    T = 2π / ReSolver.frequency(x)
     c = x.p[2]
     t = (0:g.Ns - 1) .* (T / g.Ns)
     u = reduce(hcat, [shift(x.a.data[:, l], -c * t[l], g) for l in 1:g.Ns])

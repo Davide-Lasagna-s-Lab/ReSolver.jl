@@ -40,7 +40,7 @@ F₀ = System(KSNonlinear(g₀), KSLinearised(g₀), KSLinearised(g₀; adjoint=
             linearise!, ddi=(ddx!,), B=KSPreconditioner(x★; kind=:jacobian))
 solve!(x★, F₀, NewtonHookstep(maxiter=50, krylov_dim=150, Δ=0.1, Δmax=10, tol=1e-12, verbose=false))
 
-T★ = 2π / ReSolverV2.frequency(x★)
+T★ = 2π / ReSolver.frequency(x★)
 @printf "spectral orbit: T = %.10f, c = %.2e\n" T★ x★.p[2]
 
 

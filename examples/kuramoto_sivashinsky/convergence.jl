@@ -46,7 +46,7 @@ F = System(KSNonlinear(g), KSLinearised(g), KSLinearised(g; adjoint=true), dds!,
 solve!(x, F, LBFGS(maxiter=300, verbose=false))
 solve!(x, F, NewtonHookstep(maxiter=20, krylov_dim=150, Δ=0.1, Δmax=10, tol=1e-11, verbose=false))
 
-@printf "orbit: T = %.4f, ‖r‖ = %.1e\n" 2π / ReSolverV2.frequency(x) sqrt(2 * ReSolverV2.objective(F, x))
+@printf "orbit: T = %.4f, ‖r‖ = %.1e\n" 2π / ReSolver.frequency(x) sqrt(2 * ReSolver.objective(F, x))
 
 
 # ============================================================================ #

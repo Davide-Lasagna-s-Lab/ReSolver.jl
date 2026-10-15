@@ -48,7 +48,7 @@ end
 The whole search, from the trajectory to the converged orbit, is then:
 
 ```julia
-using ReSolverV2
+using ReSolver
 include("examples/kuramoto_sivashinsky/ks.jl")
 
 L  = 39

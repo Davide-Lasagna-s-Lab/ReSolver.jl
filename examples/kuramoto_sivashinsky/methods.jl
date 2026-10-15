@@ -27,7 +27,7 @@ using CairoMakie
 
 include("ks.jl")
 
-import ReSolverV2: residual!, gradient!, jacobian!
+import ReSolver: residual!, gradient!, jacobian!
 
 Random.seed!(1)
 
@@ -55,7 +55,7 @@ x★ = copy(x₀)
 solve!(x★, system(x★, :jacobian), NewtonHookstep(maxiter=50, krylov_dim=150, Δ=0.1, Δmax=10,
                                                  tol=1e-12, verbose=false))
 
-@printf "orbit: T = %.4f\n" 2π / ReSolverV2.frequency(x★)
+@printf "orbit: T = %.4f\n" 2π / ReSolver.frequency(x★)
 
 
 # ============================================================================ #

@@ -4,7 +4,7 @@
 
 ```@docs
 Orbit
-ReSolverV2.frequency
+ReSolver.frequency
 System
 ```
 
@@ -25,8 +25,8 @@ Trace
 ## Preconditioners
 
 ```@docs
-ReSolverV2.precondition!
-ReSolverV2.precondition_adjoint!
+ReSolver.precondition!
+ReSolver.precondition_adjoint!
 ```
 
 ## Residual, gradient and Jacobian
@@ -34,9 +34,9 @@ ReSolverV2.precondition_adjoint!
 These functions are used by the methods and are not exported; they are useful to check a system.
 
 ```@docs
-ReSolverV2.residual!
-ReSolverV2.objective
-ReSolverV2.gradient!
-ReSolverV2.jacobian!
-ReSolverV2.jacobian_adjoint!
+ReSolver.residual!
+ReSolver.objective
+ReSolver.gradient!
+ReSolver.jacobian!
+ReSolver.jacobian_adjoint!
 ```

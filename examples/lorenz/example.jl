@@ -40,7 +40,7 @@ orbits = map((5, 10, 20)) do K
     solve!(x, F, NewtonHookstep(maxiter=20, krylov_dim=40, Δ=1, Δmax=100, tol=1e-12,
                                 verbose=false, callback=trace))
 
-    T = 2π / ReSolverV2.frequency(x)
+    T = 2π / ReSolver.frequency(x)
     @printf "K = %2d: ‖r‖ = %.2e → %.2e in %d iterations, T = %.8f\n" K trace.res[1] trace.res[end] length(trace) - 1 T
 
     (; K, x, T)

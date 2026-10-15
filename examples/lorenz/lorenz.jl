@@ -1,4 +1,4 @@
-# The Lorenz system in space-time form, for ReSolverV2.
+# The Lorenz system in space-time form, for ReSolver.
 #
 #     ẋ = σ (y - x),   ẏ = x (ρ - z) - y,   ż = x y - β z,     σ = 10, ρ = 28, β = 8/3.
 #
@@ -9,7 +9,7 @@
 # the mean over s of the products of the states, û_0 v̂_0 + 2 Re Σ_{n≥1} conj(û_n) v̂_n on the
 # coefficients: the derivative is skew-adjoint and the adjoint operator exact in it.
 #
-# The file provides what a ReSolverV2 System needs, and the pieces to build an initial guess:
+# The file provides what a ReSolver System needs, and the pieces to build an initial guess:
 #
 #     LorenzField(K)                    space-time field with K modes, zero
 #     nonlinear!, LorenzLinearised      N(u), its linearisation and adjoint
@@ -21,9 +21,9 @@
 
 using FFTW
 using LinearAlgebra
-using ReSolverV2
+using ReSolver
 
-import ReSolverV2: precondition!, precondition_adjoint!
+import ReSolver: precondition!, precondition_adjoint!
 
 const σ = 10.0
 const ρ = 28.0
@@ -166,7 +166,7 @@ struct LorenzPreconditioner
         kind in (:jacobian, :frequency) ||
             throw(ArgumentError("kind must be :jacobian or :frequency"))
 
-        ω₀ = ReSolverV2.frequency(x₀)
+        ω₀ = ReSolver.frequency(x₀)
         K  = modes(x₀.a)
 
         # ---- Jacobian at the mean state ----

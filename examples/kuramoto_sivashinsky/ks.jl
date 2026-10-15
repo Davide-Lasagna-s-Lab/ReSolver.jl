@@ -1,4 +1,4 @@
-# Kuramoto–Sivashinsky equation in space-time form, for ReSolverV2.
+# Kuramoto–Sivashinsky equation in space-time form, for ReSolver.
 #
 #     ∂t u = -u ∂x u - ∂xx u - ∂xxxx u,     x ∈ [0, L) periodic.
 #
@@ -12,7 +12,7 @@
 # that norms do not depend on the resolution. With odd sizes the spectral derivatives are exactly
 # skew-adjoint in it, and the adjoint operator is exact.
 #
-# The file provides what a ReSolverV2 System needs, and the pieces to build an initial guess:
+# The file provides what a ReSolver System needs, and the pieces to build an initial guess:
 #
 #     KSGrid(L, Nx, Ns)                grid, wavenumbers and FFT plans
 #     KSField(g)                       space-time field, zero
@@ -26,9 +26,9 @@
 
 using FFTW
 using LinearAlgebra
-using ReSolverV2
+using ReSolver
 
-import ReSolverV2: precondition!, precondition_adjoint!
+import ReSolver: precondition!, precondition_adjoint!
 
 
 # ============================================================================ #
@@ -292,7 +292,7 @@ struct KSPreconditioner{G<:KSGrid}
 
         u₀ = x₀.a
         g  = u₀.g
-        ω₀ = ReSolverV2.frequency(x₀)
+        ω₀ = ReSolver.frequency(x₀)
         c₀ = length(x₀.p) > 1 ? x₀.p[2] : 0.0
         n  = transpose(g.n)
 

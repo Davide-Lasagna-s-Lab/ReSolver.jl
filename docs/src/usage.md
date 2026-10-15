@@ -2,11 +2,11 @@
 
 ## Installation
 
-ReSolverV2 is not registered. From the Julia REPL:
+ReSolver is not registered. From the Julia REPL:
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/Davide-Lasagna-s-Lab/ReSolverV2.jl")
+Pkg.add(url="https://github.com/Davide-Lasagna-s-Lab/ReSolver.jl")
 ```
 
 The package depends only on the Julia standard library. The examples have their own environment,
@@ -23,7 +23,7 @@ A search involves three objects.
 
 - An [`Orbit`](@ref) holds the unknowns: the space-time field `a`, in any discretisation, and the
   parameter vector `p = [log ω, c₁, …, c_m]`, the logarithm of the frequency followed by one drift
-  speed per drift direction. `ReSolverV2.frequency(x)` returns ``\omega``.
+  speed per drift direction. `ReSolver.frequency(x)` returns ``\omega``.
 - A [`System`](@ref) holds the functions that define the problem: the nonlinear operator, its
   linearisation and adjoint, the derivatives, and optionally a preconditioner.
 - A method, [`LBFGS`](@ref) or [`NewtonHookstep`](@ref), holds the options of the search, and
@@ -100,8 +100,8 @@ Before a search, check the following, with random orbits `x`, `v`, `w` of the ri
 2. **Adjoint.** ``\langle w, L v\rangle - \langle L^+ w, v\rangle`` is at the level of rounding.
 3. **Skew-adjoint derivatives.** ``\langle \partial u, v\rangle + \langle u, \partial v\rangle``
    is at the level of rounding, for `dds!` and for every function in `ddi`.
-4. **Gradient and Jacobian of the residual.** `ReSolverV2.gradient!` and `ReSolverV2.jacobian!`
-   agree with finite differences of `ReSolverV2.objective` and `ReSolverV2.residual!`, including the
+4. **Gradient and Jacobian of the residual.** `ReSolver.gradient!` and `ReSolver.jacobian!`
+   agree with finite differences of `ReSolver.objective` and `ReSolver.residual!`, including the
    components along the frequency and the drift speeds.
 5. **Preconditioner.** `precondition_adjoint!` is the adjoint of `precondition!`:
    ``\langle B^{-1} p, q\rangle = \langle p, B^{-+} q\rangle``.
@@ -202,9 +202,9 @@ applies the projection inside the functions of the [`System`](@ref), so that bot
 | quantity | where the projection is applied |
 |---|---|
 | initial orbit | at the start of [`solve!`](@ref), for both methods |
-| residual ``r`` | in `ReSolverV2.residual!` |
-| gradient ``\nabla R = \mathcal{J}^+(r, 0)`` | in `ReSolverV2.gradient!`, through `ReSolverV2.jacobian_adjoint!` |
-| Jacobian actions ``\mathcal{J}\,\delta p`` and ``\mathcal{J}^+ w`` | in `ReSolverV2.jacobian!` and `ReSolverV2.jacobian_adjoint!` |
+| residual ``r`` | in `ReSolver.residual!` |
+| gradient ``\nabla R = \mathcal{J}^+(r, 0)`` | in `ReSolver.gradient!`, through `ReSolver.jacobian_adjoint!` |
+| Jacobian actions ``\mathcal{J}\,\delta p`` and ``\mathcal{J}^+ w`` | in `ReSolver.jacobian!` and `ReSolver.jacobian_adjoint!` |
 | ``B^{-1} p`` and ``B^{-+} p`` | in every application of the preconditioner |
 
 L-BFGS then uses projected gradients, and its directions, combinations of projected gradients,
@@ -258,8 +258,8 @@ and its adjoint in the inner product of the orbits:
 ```julia
 struct MyPreconditioner … end
 
-ReSolverV2.precondition!(out::Orbit, B::MyPreconditioner, p::Orbit)         = …  # out = B⁻¹ p
-ReSolverV2.precondition_adjoint!(out::Orbit, B::MyPreconditioner, p::Orbit) = …  # out = B⁻⁺ p
+ReSolver.precondition!(out::Orbit, B::MyPreconditioner, p::Orbit)         = …  # out = B⁻¹ p
+ReSolver.precondition_adjoint!(out::Orbit, B::MyPreconditioner, p::Orbit) = …  # out = B⁻⁺ p
 
 F = System(nl, lin, adj, dds!, x; linearise!, ddi, B=MyPreconditioner(…))
 ```
@@ -367,7 +367,7 @@ when it leaves an interval:
 
 ```julia
 function watch(info)
-    T = 2π / ReSolverV2.frequency(info.x)
+    T = 2π / ReSolver.frequency(info.x)
     println("iteration ", info.iter, ": ‖r‖ = ", info.res, ", T = ", T)
     return !(10 < T < 30)                   # true stops the search
 end

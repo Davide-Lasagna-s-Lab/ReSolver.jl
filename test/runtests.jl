@@ -1,9 +1,9 @@
 using Test
 using LinearAlgebra
 using Random
-using ReSolverV2
+using ReSolver
 
-import ReSolverV2: objective, gradient!, jacobian!, jacobian_adjoint!, residual!
+import ReSolver: objective, gradient!, jacobian!, jacobian_adjoint!, residual!
 
 # Kuramoto–Sivashinsky and Kolmogorov flow models of the examples, which depend only on FFTW
 include("../examples/kuramoto_sivashinsky/ks.jl")
@@ -57,8 +57,8 @@ end
     @test norm(y .- x) == 0
     @test (2 .* y).p == 2 .* x.p
     @test dot(x, y) ≈ dot(x.a, x.a) + sum(abs2, x.p)
-    @test ReSolverV2.frequency(x) ≈ 0.4
-    @test_throws BoundsError ReSolverV2.drift(x, 0)
+    @test ReSolver.frequency(x) ≈ 0.4
+    @test_throws BoundsError ReSolver.drift(x, 0)
 end
 
 

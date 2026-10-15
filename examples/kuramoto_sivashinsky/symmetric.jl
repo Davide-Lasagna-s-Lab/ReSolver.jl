@@ -59,7 +59,7 @@ runs = map(cases) do (name, x, ddi, project)
     solve!(x, F, NewtonHookstep(maxiter=30, krylov_dim=200, Δ=0.1, Δmax=10, tol=1e-10,
                                 verbose=false, callback=record))
 
-    T = 2π / ReSolverV2.frequency(x)
+    T = 2π / ReSolver.frequency(x)
     @printf "%-26s ‖r‖ = %.1e in %d Newton iterations, %3d Jacobian actions; T = %.6f, asymmetry %.1e\n" name trace.res[end] length(trace) - 1 trace.evaluations[end].jacobian T asym[end]
 
     (; name, x, trace, asym)
@@ -97,7 +97,7 @@ tr  = run.trace
 # ---- top: initial guess and converged orbit, odd about x = 0 and x = L/2 ----
 top = fig[1, 1:3] = GridLayout()
 for (j, (title, a, T)) in enumerate((("initial guess", a₀, m * Δt),
-                                     ("converged orbit", run.x.a, 2π / ReSolverV2.frequency(run.x))))
+                                     ("converged orbit", run.x.a, 2π / ReSolver.frequency(run.x))))
     t  = (0:g.Ns - 1) .* (T / g.Ns)
     ax = Axis(top[1, j]; title, xlabel="x", ylabel="t")
     hm = heatmap!(ax, xpoints(g), t, a.data; colormap=:balance, colorrange=(-3, 3))

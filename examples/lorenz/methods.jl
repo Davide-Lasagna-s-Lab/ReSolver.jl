@@ -25,7 +25,7 @@ using CairoMakie
 
 include("lorenz.jl")
 
-import ReSolverV2: residual!, gradient!, jacobian!
+import ReSolver: residual!, gradient!, jacobian!
 
 
 # ============================================================================ #
@@ -50,7 +50,7 @@ x★ = initial_orbit(U, dt, i, m, 20)
 solve!(x★, system(x★), NewtonHookstep(maxiter=20, krylov_dim=40, Δ=1, Δmax=100, tol=1e-12,
                                       verbose=false))
 
-@printf "orbit: T = %.8f\n" 2π / ReSolverV2.frequency(x★)
+@printf "orbit: T = %.8f\n" 2π / ReSolver.frequency(x★)
 
 
 # ============================================================================ #

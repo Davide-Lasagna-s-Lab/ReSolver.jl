@@ -1,13 +1,13 @@
-# ReSolverV2.jl
+# ReSolver.jl
 
 Space-time search for periodic and relative periodic orbits of dynamical systems.
 
 Developed by Davide Lasagna, University of Southampton.
 
-**Documentation: https://davide-lasagna-s-lab.github.io/ReSolverV2.jl/**
+**Documentation: https://davide-lasagna-s-lab.github.io/ReSolver.jl/**
 
 For a system $\partial_t u = N(u)$, possibly equivariant under translations along some spatial
-directions, ReSolverV2 treats a whole periodic or relative periodic orbit as a single unknown: the
+directions, ReSolver treats a whole periodic or relative periodic orbit as a single unknown: the
 field over one period, written in terms of the rescaled time $s = \omega t \in [0, 2\pi)$, together
 with the frequency $\omega = 2\pi/T$ and the drift speeds $c_i$ along the directions of symmetry. An
 orbit is a zero of the space-time residual
@@ -34,7 +34,7 @@ of a search. The package depends only on the Julia standard library.
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/Davide-Lasagna-s-Lab/ReSolverV2.jl")
+Pkg.add(url="https://github.com/Davide-Lasagna-s-Lab/ReSolver.jl")
 ```
 
 ## Example
@@ -47,7 +47,7 @@ preconditioner built from the linear part of the equation; the search finds the 
 pre-periodic orbit of the system, traversed twice:
 
 ```julia
-using ReSolverV2
+using ReSolver
 include("examples/kuramoto_sivashinsky/ks.jl")
 
 g = KSGrid(22, 33, 49)                                # 33 points in x, 49 in rescaled time

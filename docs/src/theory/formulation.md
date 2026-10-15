@@ -1,6 +1,6 @@
 # Space-time formulation
 
-This page sets up the problem solved by ReSolverV2: the search for a periodic or relative periodic
+This page sets up the problem solved by ReSolver: the search for a periodic or relative periodic
 orbit written as the zero of a residual over space and time, and the objects from which both search
 methods are built.
 

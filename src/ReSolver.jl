@@ -1,4 +1,4 @@
-module ReSolverV2
+module ReSolver
 
 # Space-time search for periodic and relative periodic orbits of a dynamical system ∂t a = N(a),
 #

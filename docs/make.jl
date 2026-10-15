@@ -6,7 +6,7 @@
 # docs/src/assets.
 
 using Documenter
-using ReSolverV2
+using ReSolver
 
 # ---- figures of the examples ----
 assets = joinpath(@__DIR__, "src", "assets")
@@ -20,12 +20,12 @@ for (folder, prefix) in (("kuramoto_sivashinsky", "ks"), ("lorenz", "lorenz"), (
 end
 
 # ---- pages ----
-makedocs(sitename = "ReSolverV2.jl",
+makedocs(sitename = "ReSolver.jl",
          authors  = "Davide Lasagna",
-         modules  = [ReSolverV2],
+         modules  = [ReSolver],
          format   = Documenter.HTML(mathengine = Documenter.KaTeX(),
                                     prettyurls = true,
-                                    canonical  = "https://davide-lasagna-s-lab.github.io/ReSolverV2.jl/",
+                                    canonical  = "https://davide-lasagna-s-lab.github.io/ReSolver.jl/",
                                     size_threshold = 400_000),
          pages    = ["Home"     => "index.md",
                      "Usage"    => "usage.md",
