@@ -103,6 +103,7 @@ Base.@kwdef struct NewtonHookstep
    relinearise::Bool     = true          # rebuild B about the orbit at every Newton iteration
        recycle::Int      = 0             # directions carried from one Newton system to the next
      reharvest::Int      = 1             # EXPERIMENT: harvest new directions every `reharvest` Newton iterations; 0 = only after the first
+       forward::Any      = nothing       # EXPERIMENT: u -> B u; with it the trust region is ‖B δx‖ ≤ Δ along the recycled directions too
        verbose::Bool     = true          # print one line per iteration
             io::IO       = stdout        # where to print
       # any callable, in a field of abstract type, so that solve! is compiled once for all callbacks
@@ -121,7 +122,7 @@ function solve!(     x::Orbit,
                 method::NewtonHookstep)
 
     # Δ is the trust-region radius: it starts from the option and changes at every iteration
-    (; krylov_dim, krylov_tol, Δ, Δmax, eta, maxiter, tol, flexible, relinearise, recycle, reharvest, verbose,
+    (; krylov_dim, krylov_tol, Δ, Δmax, eta, maxiter, tol, flexible, relinearise, recycle, reharvest, forward, verbose,
        io, callback) = method
 
     # ---- workspace ----
@@ -202,8 +203,20 @@ function solve!(     x::Orbit,
         m              = size(H, 2)
         G              = [Matrix(1.0I, k, k) reduce(hcat, E[1:m]; init=zeros(k, 0)); zeros(m + 1, k) H]
         g̃              = [cb; g]
+        # EXPERIMENT: metric of the trust region on the coordinates c = (a, y): cᵀ W c = ‖B (U a + Zₙ y)‖²,
+        # W the Gram matrix of [B U, Qₙ] (B Zₙ = Qₙ without flexible GMRES); in d = Lᵀ c, W = L Lᵀ, it is ‖d‖
+        Lt = nothing
+        if forward !== nothing && k > 0 && !flexible
+            BU = [forward(u) for u in U]
+            W  = Matrix(1.0I, k + m, k + m)
+            for i in 1:k, j in 1:k; W[i, j] = dot(BU[i], BU[j]); end
+            for i in 1:k, j in 1:m; W[i, k + j] = W[k + j, i] = dot(BU[i], arn.Q[j]); end
+            Lt = cholesky(Symmetric(W)).U          # W = Ltᵀ Lt, d = Lt c
+            G  = G / Lt
+        end
         SH             = svd(G)
         y, at_boundary = _hookstep(SH, g̃, Δ)
+        Lt === nothing || (y = Lt \ y)
 
         LAST_KRYLOV[] = (Q = arn.Q, H = copy(H), k = k)  # EXPERIMENT
 
@@ -218,7 +231,7 @@ function solve!(     x::Orbit,
 
             # actual and predicted reductions of ½‖r‖²
             Rn        = objective(F, xn)
-            predicted = (norm(g̃)^2 - norm(g̃ - G * y)^2) / 2
+            predicted = (norm(g̃)^2 - norm(g̃ - (Lt === nothing ? G * y : G * (Lt * y)))^2) / 2
             ρ         = (R - Rn) / predicted
 
             # radius update; a ratio that is not a number, e.g. from a vanishing predicted
@@ -243,6 +256,7 @@ function solve!(     x::Orbit,
                 return x
             end
             y, at_boundary = _hookstep(SH, g̃, Δ)
+            Lt === nothing || (y = Lt \ y)
             used      = Δ
             rejected += 1
         end
@@ -250,7 +264,7 @@ function solve!(     x::Orbit,
         # ---- the directions recycled into the next system: the right singular vectors of G of the
         #      smallest singular values, the slow directions of this one ----
         harvest = iter == 1 || (reharvest > 0 && (iter - 1) % reharvest == 0)
-        recycle > 0 && harvest && (U = _recycled(SH, min(recycle, size(G, 2)), k, U, Z, arn.Q, F, flexible, x))
+        recycle > 0 && harvest && (U = _recycled(SH, min(recycle, size(G, 2)), k, U, Z, arn.Q, F, flexible, x; Lt))
 
         # the accepted step: the Newton (GMRES) step inside the trust region, or a hookstep on
         # its boundary
@@ -407,8 +421,9 @@ end
 # the kk directions of the step along the right singular vectors of G of the smallest singular
 # values: [U Zₙ] v for each such v, with Zₙ = B⁻¹ Qₙ formed once per direction without flexible GMRES
 function _recycled(SH::SVD, kk::Int, k::Int, U::Vector{X}, Z::Vector{X}, Q::Vector{X}, F::System,
-                   flexible::Bool, x::X) where {X}
+                   flexible::Bool, x::X; Lt=nothing) where {X}
     V = SH.V[:, end - kk + 1:end]
+    Lt === nothing || (V = Lt \ V)
     z = similar(x)
     return [_step!(similar(x), z, V[:, i], k, U, Z, Q, F, flexible) for i in 1:kk]
 end
