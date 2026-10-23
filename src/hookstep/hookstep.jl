@@ -102,6 +102,7 @@ Base.@kwdef struct NewtonHookstep
       flexible::Bool     = false         # keep B⁻¹ qⱼ: B⁻¹ may change between Arnoldi steps
    relinearise::Bool     = true          # rebuild B about the orbit at every Newton iteration
        recycle::Int      = 0             # directions carried from one Newton system to the next
+     reharvest::Int      = 1             # EXPERIMENT: harvest new directions every `reharvest` Newton iterations; 0 = only after the first
        verbose::Bool     = true          # print one line per iteration
             io::IO       = stdout        # where to print
       # any callable, in a field of abstract type, so that solve! is compiled once for all callbacks
@@ -117,7 +118,7 @@ function solve!(     x::Orbit,
                 method::NewtonHookstep)
 
     # Δ is the trust-region radius: it starts from the option and changes at every iteration
-    (; krylov_dim, krylov_tol, Δ, Δmax, eta, maxiter, tol, flexible, relinearise, recycle, verbose,
+    (; krylov_dim, krylov_tol, Δ, Δmax, eta, maxiter, tol, flexible, relinearise, recycle, reharvest, verbose,
        io, callback) = method
 
     # ---- workspace ----
@@ -243,7 +244,8 @@ function solve!(     x::Orbit,
 
         # ---- the directions recycled into the next system: the right singular vectors of G of the
         #      smallest singular values, the slow directions of this one ----
-        recycle > 0 && (U = _recycled(SH, min(recycle, size(G, 2)), k, U, Z, arn.Q, F, flexible, x))
+        harvest = iter == 1 || (reharvest > 0 && (iter - 1) % reharvest == 0)
+        recycle > 0 && harvest && (U = _recycled(SH, min(recycle, size(G, 2)), k, U, Z, arn.Q, F, flexible, x))
 
         # the accepted step: the Newton (GMRES) step inside the trust region, or a hookstep on
         # its boundary
