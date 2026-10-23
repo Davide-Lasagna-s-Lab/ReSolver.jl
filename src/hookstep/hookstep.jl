@@ -113,6 +113,9 @@ end
 # ---------------------------------------------------------------------------- #
 # Newton iterations                                                            #
 # ---------------------------------------------------------------------------- #
+# EXPERIMENT: the Arnoldi basis and Hessenberg matrix of the last Newton iteration, for external analysis
+const LAST_KRYLOV = Ref{Any}(nothing)
+
 function solve!(     x::Orbit,
                      F::System,
                 method::NewtonHookstep)
@@ -201,6 +204,8 @@ function solve!(     x::Orbit,
         g̃              = [cb; g]
         SH             = svd(G)
         y, at_boundary = _hookstep(SH, g̃, Δ)
+
+        LAST_KRYLOV[] = (Q = arn.Q, H = copy(H), k = k)  # EXPERIMENT
 
         # ---- trust region: accept the step, or shrink Δ and solve (3) again ----
         ρ        = 0.0
