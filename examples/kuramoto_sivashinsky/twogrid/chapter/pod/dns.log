@@ -1,0 +1,17 @@
+record length, largest principal angle (deg) of the 4/8/12/16-mode POD subspaces to the full record:
+       625:  11.54  30.23   6.63   6.95
+      1250:   5.60   7.08   4.49   2.80
+      2500:   3.61   6.50   3.95   1.48
+      5000:   1.57   4.35   1.52   0.93
+     10000:   0.60   1.94   0.21   0.43
+     20000:   0.83   2.41   0.19   0.33
+   quarter 1:   0.60   1.94   0.21   0.43
+   quarter 2:   1.99   3.24   0.55   0.47
+   quarter 3:   0.67   2.47   0.37   0.32
+   quarter 4:   1.48   2.70   0.17   0.44
+80000 snapshots, t = 200.0..40200.0; rms u = 1.300
+POD modes for 90/99/99.9/99.99% of the energy: [3, 6, 8, 10]
+energy fraction of the sine modes k = 1..12: [0.0236 0.0106 0.0319 0.5565 0.1004 0.1586 0.0352 0.0605 0.0103 0.0088
+ 0.0016 0.0015]
+mean sine wavenumber of POD modes 1..16: [ 4.5  5.   6.2  2.9  6.9  2.2  8.8  7.2  5.2  9.6 12.1 10.6 13.2 14.2
+ 14.9 16.3]

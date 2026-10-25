@@ -5,8 +5,12 @@ authors = ["Davide Lasagna <davide.lasagna@soton.ac.uk>"]
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PeriodicBSplines = "8b3cddf6-56ce-4b00-84c3-62d5a5ad6665"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[sources]
+PeriodicBSplines = {path = "lib/PeriodicBSplines.jl"}
 
 [weakdeps]
 BorderedMatrices = "4f1fcb3f-c446-4861-abdc-d00ee1679649"
@@ -17,6 +21,7 @@ ReSolverBorderedMatricesExt = "BorderedMatrices"
 [compat]
 BorderedMatrices = "0.2"
 LinearAlgebra = "1"
+PeriodicBSplines = "0.1"
 Printf = "1"
 SparseArrays = "1"
 julia = "1.10"

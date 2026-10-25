@@ -106,7 +106,8 @@ function run_newton(x::Orbit, g::KSGrid; kind=:twogrid, r=12, tc=1, neutral=true
     crs  = kind === :plain ? 0 : ReSolver.coarse_bytes(B)
     return (; T, Ns=g.Ns, its, steps=length(its), res=tr.res[end], jac, builds=bld,
             actions=jac + bld, time=t, krylov_MB=kryl / 1e6, coarse_MB=crs / 1e6,
-            nodes=kind === :plain ? 0 : B.nodes, converged=tr.res[end] < tol)
+            nodes=kind === :plain ? 0 : B.nodes, converged=tr.res[end] < tol,
+            krylov=tr.krylov[2:end], newton=copy(tr.res))
 end
 
 fmt(o) = @sprintf("T=%7.1f Ns=%5d | steps %2d its %s | ‖r‖ %.1e | actions %5d (J %5d + build %4d) | %7.1f s | Krylov %7.1f MB, coarse %7.1f MB (%d unknowns)",

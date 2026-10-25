@@ -1,0 +1,25 @@
+splines t_c = 1: 73 time functions, ρ(E) = 0.00484, |λ| > 0.1: 0
+splines t_c = 2: 36 time functions, ρ(E) = 0.0352, |λ| > 0.1: 0
+splines t_c = 3: 24 time functions, ρ(E) = 0.0706, |λ| > 0.1: 0
+splines t_c = 4: 18 time functions, ρ(E) = 0.114, |λ| > 0.1: 2
+splines t_c = 6: 12 time functions, ρ(E) = 0.311, |λ| > 0.1: 7
+splines t_c = 8: 9 time functions, ρ(E) = 0.222, |λ| > 0.1: 16
+Fourier |n| ≤ 3 (|ω n| ≤ 0.74): 7 time functions, ρ(E) = 0.455, |λ| > 0.1: 23
+Fourier |n| ≤ 5 (|ω n| ≤ 1.24): 11 time functions, ρ(E) = 0.146, |λ| > 0.1: 4
+Fourier |n| ≤ 7 (|ω n| ≤ 1.73): 15 time functions, ρ(E) = 0.0744, |λ| > 0.1: 0
+Fourier |n| ≤ 9 (|ω n| ≤ 2.23): 19 time functions, ρ(E) = 0.0414, |λ| > 0.1: 0
+Fourier |n| ≤ 12 (|ω n| ≤ 2.97): 25 time functions, ρ(E) = 0.0209, |λ| > 0.1: 0
+Fourier |n| ≤ 15 (|ω n| ≤ 3.71): 31 time functions, ρ(E) = 0.0122, |λ| > 0.1: 0
+Fourier |n| ≤ 18 (|ω n| ≤ 4.46): 37 time functions, ρ(E) = 0.00786, |λ| > 0.1: 0
+Fourier |n| ≤ 24 (|ω n| ≤ 5.94): 49 time functions, ρ(E) = 0.00484, |λ| > 0.1: 0
+Fourier |n| ≤ 36 (|ω n| ≤ 8.92): 73 time functions, ρ(E) = 0.00484, |λ| > 0.1: 0
+largest coupling between harmonics, relative to the diagonal blocks, against ω|n - n'|:
+    0.0: 3.8e-02
+    1.0: 2.3e-03
+    2.0: 1.5e-04
+    3.0: 9.4e-06
+    4.0: 6.0e-07
+    5.0: 3.9e-08
+    6.0: 2.5e-09
+    7.0: 1.6e-10
+    8.0: 1.0e-11

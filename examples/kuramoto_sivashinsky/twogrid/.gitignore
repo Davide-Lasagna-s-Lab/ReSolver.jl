@@ -1,1 +1,6 @@
 explore/slowdirs/
+chapter/dense/
+chapter/pod/dns_snapshots.npy
+chapter/resolvent.npz
+chapter/__pycache__/
+chapter/timecoarse.npz

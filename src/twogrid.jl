@@ -18,9 +18,10 @@
 # `coords(c, a)` writes the coordinates of the field `a` into the matrix `c`, `coords(a)` returns
 # them as a new matrix, and `field!(a, c)` writes the field of the coordinates `c` into `a`. In
 # time, either every slice (tc = 1), or periodic cubic B-splines on a grid tc times coarser
-# (tc > 1). The prolongation P maps the coarse unknowns, the coefficients of the r modes at the Ns
-# slices or of the B-splines, and the parameters, to an orbit; the restriction is its adjoint,
-# R = Pᵀ, as for a Galerkin method.
+# (tc > 1), from the package PeriodicBSplines (lib/PeriodicBSplines.jl, documented on its own).
+# The prolongation P maps the coarse unknowns, the coefficients of the r modes at the Ns slices or
+# of the B-splines, and the parameters, to an orbit; the restriction is its adjoint, R = Pᵀ, as for
+# a Galerkin method.
 #
 # Coarse operator. K = R 𝒥̃ P, the Galerkin projection of the Jacobian, with the time derivative
 #
@@ -48,6 +49,7 @@
 # no adjoint and serves the hookstep only.
 
 using SparseArrays
+using PeriodicBSplines: collocation
 
 """
     TwoGrid(B, coords, field!, r; tc=1, h=4, neutral=true, cycle=:multiplicative, pre=2, post=2,
@@ -120,26 +122,8 @@ function centred_weights(h::Int)
     return A \ [i == 1 ? 0.5 : 0.0 for i in 1:h]
 end
 
-# ---- periodic cubic B-splines in time ----
-# the cardinal cubic B-spline, support [-2, 2], and its derivative
-_bspline(u)  = (v = abs(u); v < 1 ? (4 - 6v^2 + 3v^3) / 6 : v < 2 ? (2 - v)^3 / 6 : 0.0)
-_dbspline(u) = (v = abs(u); v < 1 ? -2u + 1.5u * v : v < 2 ? -sign(u) * (2 - v)^2 / 2 : 0.0)
-
-# values and s-derivatives of the Nc B-splines centred at 2π m/Nc, at the Ns slices 2π l/Ns
-function bsplines(Ns::Int, Nc::Int)
-    Δ = 2π / Nc
-    I_, J_, V_, D_ = Int[], Int[], Float64[], Float64[]
-    for l in 1:Ns
-        s  = 2π * (l - 1) / Ns
-        m₀ = floor(Int, s / Δ)
-        for m in m₀ - 1:m₀ + 2
-            u = (s - Δ * m) / Δ
-            push!(I_, l); push!(J_, mod(m, Nc) + 1)
-            push!(V_, _bspline(u)); push!(D_, _dbspline(u) / Δ)
-        end
-    end
-    return sparse(I_, J_, V_, Ns, Nc), sparse(I_, J_, D_, Ns, Nc)
-end
+# ---- periodic cubic B-splines in time: PeriodicBSplines.collocation(Ns, Nc) gives the values and
+#      s-derivatives of the Nc splines centred at 2π m/Nc, at the Ns slices 2π l/Ns ----
 
 nblocks(tg::TwoGrid) = tg.Pt === nothing ? size(tg.c, 2) : size(tg.Pt, 2)
 ncoarse(tg::TwoGrid) = tg.r + (tg.V === nothing ? 0 : size(tg.V, 2))
@@ -288,7 +272,7 @@ function relinearise!(tg::TwoGrid, F, x::Orbit)
         Nb = round(Int, Ns / tg.tc)
         hb = 3
         Nb > 2hb || throw(ArgumentError("need more than $(2hb) coarse time points"))
-        Pt, Pd = bsplines(Ns, Nb)
+        Pt, Pd = collocation(Ns, Nb)
         tg.Pt  = Pt
         QdQ = zeros(rc, rc, Ns)                        # Q_lᵀ ∂s Q_l
         if tg.V !== nothing

@@ -28,7 +28,9 @@ At each time slice the coarse space keeps the first `r` spatial coordinates of t
 the user as an isometry `coords`/`field!` ordered from large to small scales: spectral truncation in
 space. With `neutral=true` it also keeps, at each slice, the profiles of the neutral directions,
 $\partial_s a$ and the drift derivatives. In time it keeps every slice (`tc=1`) or periodic cubic
-B-splines on a grid `tc` times coarser.
+B-splines on a grid `tc` times coarser. The splines come from the sub-package PeriodicBSplines.jl
+(`lib/PeriodicBSplines.jl` in this repository), whose documentation derives their properties, their
+accuracy, and how many splines per period the slow dynamics need, which is what limits `tc`.
 
 The coarse operator is the Galerkin projection of the Jacobian. Its spatial blocks are obtained by
 probing: one application of the linearised operator to the field whose coordinates are $e_\alpha$
