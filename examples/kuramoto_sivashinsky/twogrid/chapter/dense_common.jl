@@ -63,10 +63,11 @@ function analyse(case, x, g, J; save=String[])
     for f in readdir(joinpath(@__DIR__, "bases"))              # resolvent bases (resolvent.py)
         bases[splitext(f)[1]] = readdlm(joinpath(@__DIR__, "bases", f))
     end
-    function run(name; basis="sine", r=16, tc=2, pre=2, post=2, cycle=:multiplicative, h=4, neutral=true)
-        t0 = time()
+    function run(name; basis="sine", r=16, tc=2, pre=2, post=2, cycle=:multiplicative, h=4, neutral=true,
+                 time=:splines)
+        t0 = Base.time()
         coords, field! = basis_coordinates(g, bases[basis])
-        tg = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, r; tc, h, neutral, cycle, pre, post, solver=:sparse)
+        tg = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, r; tc, time, h, neutral, cycle, pre, post, solver=:sparse)
         relinearise!(tg, F, x)
         Minv = dense((o, v) -> precondition!(o, tg, F, v), x, n)
         λ = eigvals(I - Minv * J)
@@ -81,9 +82,9 @@ function analyse(case, x, g, J; save=String[])
             Kinv = reduce(hcat, [coarse_solve(tg.K, (fill!(ec, 0); ec[c] = 1; copy(ec))) for c in 1:nc])
             writebin("$(case)_Minv_$name.bin", Minv); writebin("$(case)_P_$name.bin", P)
             writebin("$(case)_K_$name.bin", inv(Kinv)); writebin("$(case)_G_$name.bin", transpose(P) * J * P)
-            writedlm(joinpath(OUTD, "$(case)_dims_$name.txt"), [n nc tg.r + (tg.V === nothing ? 0 : size(tg.V, 2)) (tg.Pt === nothing ? g.Ns : size(tg.Pt, 2))])
+            writedlm(joinpath(OUTD, "$(case)_dims_$name.txt"), [n nc tg.r + (tg.V === nothing ? 0 : size(tg.V, 2)) ReSolver.nblocks(tg)])
         end
-        @printf "%s %-28s ρ(E) = %8.3g, |λ| > 0.1: %4d  (%.0f s)\n" case name maximum(abs, λ) count(>(0.1), abs.(λ)) time() - t0
+        @printf "%s %-28s ρ(E) = %8.3g, |λ| > 0.1: %4d  (%.0f s)\n" case name maximum(abs, λ) count(>(0.1), abs.(λ)) Base.time() - t0
         flush(stdout)
     end
     return run

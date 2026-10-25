@@ -79,7 +79,7 @@ end
 # ---- Newton–hookstep with a given preconditioner, returning its costs ----
 # kind = :plain (B only) or :twogrid; keywords of TwoGrid passed through; coordinates: the spatial
 # basis of the coarse space (sine modes by default)
-function run_newton(x::Orbit, g::KSGrid; kind=:twogrid, r=12, tc=1, neutral=true, cycle=:multiplicative,
+function run_newton(x::Orbit, g::KSGrid; kind=:twogrid, r=12, tc=1, time=:splines, neutral=true, cycle=:multiplicative,
                     pre=1, post=1, h=4, solver=:banded, krylov_dim=nothing, maxiter=15, tol=1e-10,
                     krylov_tol=1e-3, verbose=false, coordinates=odd_sine_coordinates(g))
     x   = copy(x)
@@ -89,7 +89,7 @@ function run_newton(x::Orbit, g::KSGrid; kind=:twogrid, r=12, tc=1, neutral=true
         B = B0
     else
         coords, field! = coordinates
-        B = TwoGrid(B0, coords, field!, r; tc, h, neutral, cycle, pre, post, solver)
+        B = TwoGrid(B0, coords, field!, r; tc, time, h, neutral, cycle, pre, post, solver)
     end
     F   = System(ops..., dds!, x; linearise!, B, project=odd!)
     T   = 2π / frequency(x)

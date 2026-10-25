@@ -362,20 +362,63 @@ end
         @test ReSolver.coarse_solve(B.K, ReSolver.restrict(B, Jy)) ≈ y
     end
 
+    # ---- time = :fourier: the transfers in time are exact on harmonics. Trigonometric
+    #      interpolation, the truncation of the Fourier series (times Ns/Nc, from the adjoint), and
+    #      the evaluation at the coarse times of the interpolant, harmonics above Nc/2 included ----
+    Ns, Nc = g.Ns, 7
+    t(N) = 2π .* (0:N - 1) ./ N
+    @test ReSolver._tprolong(reshape(cos.(3 .* t(Nc)), 1, Nc), Ns) ≈ reshape(cos.(3 .* t(Ns)), 1, Ns)
+    @test ReSolver._trestrict(reshape(cos.(3 .* t(Ns)) .+ sin.(5 .* t(Ns)), 1, Ns), Nc) ≈
+          reshape((Ns / Nc) .* cos.(3 .* t(Nc)), 1, Nc)
+    @test ReSolver._tsample(reshape(sin.(5 .* t(Ns)), 1, 1, Ns), Nc) ≈ reshape(sin.(5 .* t(Nc)), 1, 1, Nc)
+
+    # ---- an orbit with temporal harmonics |n| ≤ 3 only, which the coarse times of tc = 2 resolve ----
+    xb = copy(x)
+    X̂  = rfft(xb.a.data, 2); X̂[:, 5:end] .= 0
+    xb.a.data .= irfft(X̂, Ns, 2)
+
+    for (tc, neutral, solver) in ((1, false, :sparse), (2, false, :sparse), (2, true, :sparse),
+                                  (2, false, :banded))
+        B  = TwoGrid(KSPreconditioner(xb; kind=:jacobian), coords, field!, 6; tc, time=:fourier, neutral, solver)
+        Fd = System(nl, lin, dds!, xb; linearise!, ddi=(ddx!,), B, project=demean!)
+        Fd.linearise!(Fd.lin, xb.a)
+        ReSolver.relinearise!(B, Fd, xb)
+        rc, Nb = ReSolver.ncoarse(B), ReSolver.nblocks(B)
+        @test isodd(Nb)
+
+        # ---- the restriction is the adjoint of the prolongation, and R P = (Ns/Nc) I ----
+        y = randn(B.nodes)
+        z = random_orbit(0.4, 0.2)
+        @test dot(ReSolver.prolong!(similar(x), B, y), z) ≈ dot(y, ReSolver.restrict(B, z))
+        RPy = ReSolver.restrict(B, ReSolver.prolong!(similar(x), B, y))
+        @test RPy[1:rc * Nb] ≈ (Ns / Nb) .* y[1:rc * Nb]
+
+        # ---- the coarse matrix collocates the Jacobian at the coarse times: on coarse fields
+        #      constant in time, about an orbit the coarse times resolve, it is R 𝒥 P (the neutral
+        #      profiles, normalised slice by slice, are not band-limited) ----
+        neutral && continue
+        y  = vcat(vec(repeat(randn(rc), 1, Nb)), randn(2))
+        Jy = jacobian!(similar(x), Fd, xb, ReSolver.prolong!(similar(x), B, y))
+        @test ReSolver.coarse_solve(B.K, ReSolver._coarse_rhs(B, ReSolver.restrict(B, Jy))) ≈ y
+    end
+
     # ---- the two solvers of the coarse matrix agree ----
-    Bs, Bb = (TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc=1, solver) for solver in (:sparse, :banded))
-    Fs = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B=Bs, project=demean!)
-    Fb = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B=Bb, project=demean!)
-    Fs.linearise!(Fs.lin, x.a)
-    ReSolver.relinearise!(Bs, Fs, x); ReSolver.relinearise!(Bb, Fb, x)
-    p, ps, pb = random_orbit(0.4, 0.2), similar(x), similar(x)
-    ReSolver.precondition!(ps, Bs, Fs, p); ReSolver.precondition!(pb, Bb, Fb, p)
-    @test norm(ps .- pb) / norm(ps) < 1e-10
+    for (tc, time) in ((1, :splines), (2, :fourier))
+        Bs, Bb = (TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc, time, solver) for solver in (:sparse, :banded))
+        Fs = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B=Bs, project=demean!)
+        Fb = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B=Bb, project=demean!)
+        Fs.linearise!(Fs.lin, x.a)
+        ReSolver.relinearise!(Bs, Fs, x); ReSolver.relinearise!(Bb, Fb, x)
+        p, ps, pb = random_orbit(0.4, 0.2), similar(x), similar(x)
+        ReSolver.precondition!(ps, Bs, Fs, p); ReSolver.precondition!(pb, Bb, Fb, p)
+        @test norm(ps .- pb) / norm(ps) < 1e-10
+    end
 
     # ---- a search with the two-grid preconditioner, in every cycle, reduces the residual and
     #      stays on the zero-mean fields ----
-    for (cycle, tc) in ((:multiplicative, 1), (:multiplicative, 2), (:additive, 1))
-        B  = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc, cycle)
+    for (cycle, tc, time) in ((:multiplicative, 1, :splines), (:multiplicative, 2, :splines),
+                              (:additive, 1, :splines), (:multiplicative, 2, :fourier))
+        B  = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc, time, cycle)
         Fd = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B, project=demean!)
         y  = copy(x)
         R₀ = objective(Fd, y)
@@ -385,6 +428,10 @@ end
         @test abs(sum(y.a.data)) / norm(y.a) < 1e-10
         @test B.builds > 0
     end
+
+    # ---- the additive cycle needs every slice ----
+    @test_throws ArgumentError TwoGrid(I, coords, field!, 2; time=:fourier, cycle=:additive)
+    @test_throws ArgumentError TwoGrid(I, coords, field!, 2; time=:chebyshev)
 
     # ---- it has no adjoint, so L-BFGS refuses it ----
     @test_throws ArgumentError ReSolver.precondition_adjoint!(similar(x), TwoGrid(I, coords, field!, 2), x)

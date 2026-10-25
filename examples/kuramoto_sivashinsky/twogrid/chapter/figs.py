@@ -1,7 +1,8 @@
 """Figures of the chapter on the two-grid preconditioner.      python3 figs.py outdir [part …]
 
 Parts: orbits, symbols, coarsebasis, timecontent, pod, gallery, spectra, smoother, coarse, kspec,
-kmodes, exact, preconditioned, cycles, escape, bases, histories, podscan."""
+kmodes, exact, preconditioned, cycles, escape, bases, histories, podscan, timefourier, fouriertransfer,
+fourierimpl."""
 import sys, os
 import numpy as np
 import matplotlib; matplotlib.use("Agg")
@@ -577,6 +578,76 @@ if "podconv" in which:
     ax[1].set_xlabel("POD mode"); ax[1].set_ylabel("energy fraction"); ax[1].legend(frameon=False, fontsize=7)
     ax[1].set_title("POD energies, records of 625 to 20 000", fontsize=8)
     save(fig, "ch_pod_convergence")
+
+# ---------------------------------------------------------------- the Fourier mode of TwoGrid (time = :fourier)
+if "fourierimpl" in which:
+    def rho(case, cfg):
+        l = np.abs(eigE(cfg, case))
+        return l.max(), int(np.sum(l > 0.1))
+    tcs = (2, 3, 4, 6, 8)
+    fig = plt.figure(figsize=(8.6, 5.6))
+    gs = fig.add_gridspec(2, 3, hspace=0.5, wspace=0.42)
+    a0, a1, a2 = (fig.add_subplot(gs[0, j]) for j in range(3))
+    for time, c, mk, lab in (("splines", PURPLE, "P", "B-splines"), ("fourier", RED, "D", "Fourier + compact")):
+        for r, ls in ((16, "-"), (12, "--")):
+            v = np.array([rho("M1", f"sine_r{r}_tc{tc}_V22_{time}") for tc in tcs])
+            a0.semilogy(tcs, v[:, 0], ls, marker=mk, color=c, ms=4, mfc="none", lw=1.1, label=f"{lab}, $r = {r}$")
+            a1.plot(tcs, v[:, 1], ls, marker=mk, color=c, ms=4, mfc="none", lw=1.1)
+        q = np.array([rho("Q2", f"sine_r16_tc{tc}_V22_{time}") for tc in (2, 4)])
+        a0.plot((2, 4), q[:, 0], mk, color=c, ms=7, alpha=0.5, label=f"{lab}, $r = 16$, $T = 51$")
+    a0.set_xlabel("$t_c$"); a0.set_ylabel("spectral radius of $E$"); a0.set_xticks(tcs)
+    a1.set_xlabel("$t_c$"); a1.set_ylabel("eigenvalues of $E$ with $|\\lambda| > 0.1$"); a1.set_xticks(tcs)
+    h, l = a0.get_legend_handles_labels()
+    a1.legend(h, l, frameon=False, fontsize=6.3, loc="upper left")
+    a0.set_title("cycle V(2,2), $T = 25$", fontsize=8); a1.set_title("unresolved eigenvalues", fontsize=8)
+    th = np.linspace(0, 2 * np.pi, 200)
+    for time, c, mk in (("splines", PURPLE, "P"), ("fourier", RED, "D")):
+        l = eigE(f"sine_r16_tc4_V22_{time}")
+        l = l[np.abs(l) > 1e-3]
+        a2.plot(l.real, l.imag, mk, color=c, ms=2.6, mfc="none", mew=0.6, label=time)
+    a2.plot(0.1 * np.cos(th), 0.1 * np.sin(th), color=GREY, lw=0.6, ls=":")
+    a2.set_aspect("equal"); a2.set_xlabel("Re $\\lambda$"); a2.set_ylabel("Im $\\lambda$")
+    a2.set_title("eigenvalues of $E$ above $10^{-3}$, $t_c = 4$", fontsize=8); a2.legend(frameon=False, fontsize=7)
+    # the coarse matrix of the Fourier mode, and how close it is to the exact Galerkin product
+    cfg = "sine_r16_tc2_V22_fourier"
+    n, nc, rc, Nb = dims(cfg)
+    Kt = K.read_dense(f"M1_K_{cfg}.bin", nc); G = K.read_dense(f"M1_G_{cfg}.bin", nc)
+    m = np.array([1, 120, 1191, 2416, 1191, 120, 1]) / 5040
+    Cm = sum(m[j + 3] * np.roll(np.eye(Nb), j, axis=1) for j in range(-3, 4))
+    Mf = np.eye(nc); Mf[:rc * Nb, :rc * Nb] = np.kron(Cm, np.eye(rc))
+    Kc = np.linalg.solve(Mf, Kt)
+    # PᵀJP is in the units of the dense basis: compare up to the scale that fits best, on the field
+    # part, in total and by coarse temporal harmonic (unitary DFT over the coarse times)
+    f = slice(0, rc * Nb)
+    c = np.sum(Kc[f, f] * G[f, f]) / np.sum(G[f, f] ** 2)
+    E, Gs = (Kc - c * G)[f, f], c * G[f, f]
+    Fk = np.kron(np.fft.fft(np.eye(Nb)) / np.sqrt(Nb), np.eye(rc))
+    Eh, Gh = Fk @ E @ Fk.conj().T, Fk @ Gs @ Fk.conj().T
+    nh = np.repeat(np.abs(np.fft.fftfreq(Nb, 1 / Nb)), rc); N = (Nb - 1) // 2
+    low = nh <= N // 2
+    print(cfg, f"‖M⁻¹K - c PᵀJP‖/‖c PᵀJP‖ = {np.linalg.norm(E) / np.linalg.norm(Gs):.3f}; share of the three "
+          f"highest coarse harmonics {np.linalg.norm(Eh[nh >= N - 2, :]) ** 2 / np.linalg.norm(Eh) ** 2:.2f}; "
+          f"on |n| <= N/2 {np.linalg.norm(Eh[np.ix_(low, low)]) / np.linalg.norm(Gh[np.ix_(low, low)]):.3f}")
+    a = fig.add_subplot(gs[1, 0])
+    a.spy(np.abs(Kt) > 1e-9 * np.abs(Kt).max(), markersize=0.15, color="k", rasterized=True)
+    a.set_title(f"$K$, Fourier, $t_c = 2$: {nc} unknowns", fontsize=8); a.tick_params(labelsize=7)
+    a = fig.add_subplot(gs[1, 1])
+    z = np.abs(G[:6 * rc, :6 * rc])
+    a.imshow(z, norm=LogNorm(1e-4 * z.max(), z.max()), cmap="magma_r", interpolation="nearest")
+    for bb in range(1, 6): a.axhline(bb * rc - 0.5, color=GREY, lw=0.3); a.axvline(bb * rc - 0.5, color=GREY, lw=0.3)
+    a.set_title("exact Galerkin $P^{T}\\mathcal{J}P$, first 6 block rows", fontsize=8); a.tick_params(labelsize=7)
+    # Newton searches against the period
+    a = fig.add_subplot(gs[1, 2])
+    rows = [l.split() for l in open(os.path.join(K.HERE, "..", "results", "fourier_newton.txt"))]
+    for time, c, mk in (("splines", PURPLE, "P"), ("fourier", RED, "D")):
+        for tc, ls in ((2, "-"), (4, "--"), (6, ":")):
+            sel = sorted((float(r[2]), np.mean([int(v) for v in r[19].split(",")])) for r in rows
+                         if r[0] == "repeat1" and r[4] == time and int(r[6]) == tc)
+            if sel:
+                a.semilogx(*zip(*sel), ls, marker=mk, color=c, ms=3.5, mfc="none", lw=1.0, label=f"{time}, $t_c = {tc}$")
+    a.set_xlabel("$T$"); a.set_ylabel("GMRES iterations per Newton step"); a.set_title("searches, $r = 16$, V(2,2)", fontsize=8)
+    a.legend(frameon=False, fontsize=6.3)
+    save(fig, "ch_fourier_impl")
 
 # ---------------------------------------------------------------- Fourier restriction, coarse problem in time
 if "fouriertransfer" in which:

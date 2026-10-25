@@ -17,6 +17,8 @@
 #
 #     julia --project=.. operators.jl            all of the above
 #     julia --project=.. operators.jl bases      only the comparison of the spatial bases, M1
+#     julia --project=.. operators.jl fourier    only the Fourier restriction against the B-splines
+#                                                in time, for t_c = 2…8 (M1, and Q2 at r = 12, 16)
 include(joinpath(@__DIR__, "dense_common.jl"))
 
 # ---- base orbit ----
@@ -31,10 +33,24 @@ Bi = dense((o, v) -> _precondition!(o, F, v), x, n)
 writebin("M1_J.bin", J); writebin("M1_Binv.bin", Bi)
 writeeig("M1_eigJ.txt", eigvals(J)); writeeig("M1_eigJBinv.txt", eigvals(J * Bi))
 @printf "M1: T = %.2f, Ns = %d, n = %d\n" 2π / exp(ρ) g.Ns n
-run = analyse("M1", x, g, J; save=["sine_r16_tc2_V22", "sine_r16_tc1_V11", "sine_r8_tc2_V22", "podA_r12_tc2_V22", "sine_r16_tc4_V22"])
+run = analyse("M1", x, g, J; save=["sine_r16_tc2_V22", "sine_r16_tc1_V11", "sine_r8_tc2_V22", "podA_r12_tc2_V22", "sine_r16_tc4_V22", "sine_r16_tc2_V22_fourier", "sine_r16_tc4_V22_fourier"])
 if ARGS == ["bases"]
     for basis in ("podA", "test", "resS", "resS_in", "resF", "resM"), tc in (1, 2), r in (4, 6, 8, 10, 12, 14, 16, 20)
         run("$(basis)_r$(r)_tc$(tc)_V22"; basis, r, tc, pre=2, post=2)
+    end
+    exit()
+end
+if ARGS == ["fourier"]
+    for time in (:splines, :fourier), tc in (2, 3, 4, 6, 8), neutral in (true, false), r in (12, 16)
+        run("sine_r$(r)_tc$(tc)_V22_$(time)$(neutral ? "" : "_noneutral")"; r, tc, neutral, time)
+    end
+    x2, g2 = repeated_start(1, 2; ε=0.0)
+    F2 = System(KSNonlinear(g2), KSLinearised(g2), dds!, x2; linearise!, B=KSPreconditioner(x2; kind=:jacobian), project=odd!)
+    F2.linearise!(F2.lin, x2.a)
+    J2 = dense((o, v) -> jacobian!(o, F2, x2, v), x2, 32 * g2.Ns + 1)
+    run2 = analyse("Q2", x2, g2, J2)
+    for time in (:splines, :fourier), tc in (2, 4), r in (12, 16)
+        run2("sine_r$(r)_tc$(tc)_V22_$(time)"; r, tc, time)
     end
     exit()
 end

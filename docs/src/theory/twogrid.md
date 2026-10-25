@@ -27,18 +27,46 @@ The cycle is a fixed linear operator, so plain right-preconditioned GMRES applie
 At each time slice the coarse space keeps the first `r` spatial coordinates of the field, given by
 the user as an isometry `coords`/`field!` ordered from large to small scales: spectral truncation in
 space. With `neutral=true` it also keeps, at each slice, the profiles of the neutral directions,
-$\partial_s a$ and the drift derivatives. In time it keeps every slice (`tc=1`) or periodic cubic
-B-splines on a grid `tc` times coarser. The splines come from the sub-package PeriodicBSplines.jl
-(`lib/PeriodicBSplines.jl` in this repository), whose documentation derives their properties, their
-accuracy, and how many splines per period the slow dynamics need, which is what limits `tc`.
+$\partial_s a$ and the drift derivatives. In time there are two choices, `time=:splines` (the
+default) and `time=:fourier`.
 
-The coarse operator is the Galerkin projection of the Jacobian. Its spatial blocks are obtained by
-probing: one application of the linearised operator to the field whose coordinates are $e_\alpha$
-at every slice gives column $\alpha$ of the blocks of all slices at once. Building $K$ therefore
-costs `r` applications per Newton iteration, independently of $T$. The time derivative is exact on
-the B-splines; with `tc=1` it is replaced by centred differences of order `2h`. Either way $K$ is
-cyclic block-banded, and its direct factorisation, by sparse LU or, with `using BorderedMatrices`,
-by banded block elimination (`solver=:banded`), costs time and memory proportional to $T$.
+With `time=:splines` the coarse space keeps every slice (`tc=1`) or periodic cubic B-splines on a
+grid `tc` times coarser. The prolongation in time is the collocation matrix of the splines on the
+slices, and the restriction is its transpose. The splines come from the package
+[PeriodicBSplines.jl](https://github.com/Davide-Lasagna-s-Lab/PeriodicBSplines.jl), whose README
+derives their properties, their accuracy, and how many splines per period the slow dynamics need,
+which is what limits `tc`.
+
+With `time=:fourier` the coarse unknowns are the values at $N_c \approx N_s/t_c$ equispaced coarse
+times, with $N_c$ odd. The transfers in time are spectral. The prolongation is trigonometric
+interpolation, which pads the temporal Fourier series with zeros, and the restriction is its
+adjoint, which truncates the series to $|n| \le (N_c - 1)/2$ and samples it at the coarse times.
+This is an exact low-pass filter, with no aliasing of the fast harmonics onto the coarse grid.
+
+The spatial blocks of the coarse operator are obtained by probing: one application of the
+linearised operator to the field whose coordinates are $e_\alpha$ at every slice gives column
+$\alpha$ of the blocks of all slices at once. Building $K$ therefore costs `r` applications per
+Newton iteration, independently of $T$.
+
+With `time=:splines`, $K$ is the Galerkin projection of the Jacobian. The time derivative is exact
+on the B-splines; with `tc=1` it is replaced by centred differences of order `2h`. With
+`time=:fourier`, the Galerkin projection would be dense in time, because the advection multiplies
+the correction by the orbit and couples all the temporal harmonics. The coarse equations are
+instead written at the coarse times $s_m$, with the spatial blocks evaluated there exactly from the
+trigonometric interpolant of their values at the slices,
+
+```math
+\omega\, y'(s_m) + \big(A(s_m) + \omega\, Q^{\mathsf T} Q'(s_m)\big)\, y(s_m) = (R\, r)_m ,
+```
+
+where $Q^{\mathsf T} Q'$ comes from the neutral profiles. The derivative is the Galerkin derivative
+of the B-splines used as a compact scheme, $\sum_j m_j\, y'_{m+j} = \sum_j d_j\, y_{m+j}/\Delta$,
+which is of eighth order and accurate to 1.2% with three points per period. The equations, and the
+restricted residual, are multiplied by the stencil $m$, which keeps $K$ banded.
+
+In all cases $K$ is cyclic block-banded, and its direct factorisation, by sparse LU or, with
+`using BorderedMatrices`, by banded block elimination (`solver=:banded`), costs time and memory
+proportional to $T$.
 
 ## Use
 

@@ -17,23 +17,41 @@
 # an isometry between the fields and real arrays of size nx × Ns, one column per time slice:
 # `coords(c, a)` writes the coordinates of the field `a` into the matrix `c`, `coords(a)` returns
 # them as a new matrix, and `field!(a, c)` writes the field of the coordinates `c` into `a`. In
-# time, either every slice (tc = 1), or periodic cubic B-splines on a grid tc times coarser
-# (tc > 1), from the package PeriodicBSplines (lib/PeriodicBSplines.jl, documented on its own).
-# The prolongation P maps the coarse unknowns, the coefficients of the r modes at the Ns slices or
-# of the B-splines, and the parameters, to an orbit; the restriction is its adjoint, R = Pᵀ, as for
-# a Galerkin method.
+# time, three choices:
+#
+#     time = :splines, tc = 1    every slice
+#     time = :splines, tc > 1    periodic cubic B-splines on a grid tc times coarser, from the
+#                                package PeriodicBSplines.jl, documented on its own
+#                                (github.com/Davide-Lasagna-s-Lab/PeriodicBSplines.jl)
+#     time = :fourier            the values at Nc ≈ Ns/tc equispaced coarse times (Nc odd), with
+#                                spectral transfers: the prolongation is trigonometric interpolation
+#                                (zero padding of the temporal Fourier series), the restriction its
+#                                adjoint, the truncation of the series to |n| ≤ (Nc - 1)/2 sampled at
+#                                the coarse times: an exact low-pass
+#
+# The prolongation P maps the coarse unknowns and the parameters to an orbit; the restriction is its
+# adjoint, R = Pᵀ.
 #
 # Coarse operator. K = R 𝒥̃ P, the Galerkin projection of the Jacobian, with the time derivative
 #
-#     tc = 1    rediscretised by centred differences of order 2h between the slices,
-#     tc > 1    exact on the B-splines, whose derivative is known,
+#     every slice    rediscretised by centred differences of order 2h between the slices,
+#     B-splines      exact on the B-splines, whose derivative is known,
+#     Fourier        rediscretised in the time domain: the spatial blocks evaluated at the coarse
+#                    times (collocation; their trigonometric interpolation from the slices, exact
+#                    for the band-limited orbit) and the time derivative by the Galerkin derivative
+#                    of the B-splines used as a compact scheme on the coarse values,
+#                    Σⱼ mⱼ y′_{i+j} = Σⱼ dⱼ y_{i+j}/Δ (PeriodicBSplines.mass_stencil and
+#                    derivative_stencil), nearly spectral; the coarse equations are multiplied by
+#                    the stencil m, which keeps K banded, and so is the restricted residual.
+#                    The Galerkin K of the band-limited space would be dense in time, because the
+#                    advection multiplies by the orbit, which couples all the temporal harmonics.
 #
 # bordered by the columns of the parameters (ω ∂s a, -∂ᵢ a) and the rows of the phase conditions
 # (∂s a, ∂ᵢ a), restricted. The spatial operator, local in time, enters through its blocks at each
 # slice, A_l = -R_l (L_l + Σᵢ cᵢ ∂ᵢ) P_l, obtained by probing: one application of the linearised
 # operator to the field whose coordinates are e_α at every slice gives the column α of all the
 # blocks at once, so building K costs r applications whatever the period. K is cyclic
-# block-banded, with r × r blocks and h block diagonals on each side (3 for the cubic B-splines),
+# block-banded, with r × r blocks and h block diagonals on each side (3 for B-splines and Fourier),
 # and is factorised directly: by sparse LU (`solver=:sparse`), or by the banded block elimination
 # of BorderedMatrices.jl (`solver=:banded`, an extension), linear in time and memory in the number
 # of blocks.
@@ -49,31 +67,39 @@
 # no adjoint and serves the hookstep only.
 
 using SparseArrays
-using PeriodicBSplines: collocation
+using FFTW: rfft, irfft, fft, ifft
+using PeriodicBSplines: collocation, mass_stencil, derivative_stencil
 
 """
-    TwoGrid(B, coords, field!, r; tc=1, h=4, neutral=true, cycle=:multiplicative, pre=2, post=2,
-            θ=1, solver=:sparse)
+    TwoGrid(B, coords, field!, r; tc=1, time=:splines, h=4, neutral=true, cycle=:multiplicative,
+            pre=2, post=2, θ=1, solver=:sparse)
 
 Two-grid preconditioner for the hookstep, with the preconditioner `B` as smoother. The coarse
-space holds the first `r` spatial coordinates of each time slice, at every slice (`tc=1`) or as
-periodic cubic B-splines on a time grid `tc` times coarser (`tc > 1`). `coords(c, a)` writes the
+space holds the first `r` spatial coordinates of each time slice. `coords(c, a)` writes the
 coordinates of the field `a` into the `nx × Ns` matrix `c`, one column per time slice, ordered from
 large to small scales and orthonormal in the inner product of the fields; `coords(a)` returns them
 as a new matrix, and `field!(a, c)` is the inverse. With `neutral=true` the coarse space also
 holds, at each slice, the profiles of the neutral directions, ∂s a and the drift derivatives.
 
-The coarse operator is the Galerkin projection of the Jacobian, with the time derivative replaced
-by centred differences of order `2h` when `tc=1`. It is factorised by sparse LU (`solver=:sparse`)
-or, after `using BorderedMatrices`, by banded block elimination (`solver=:banded`).
+In time, with `time=:splines`, the coarse space holds every slice (`tc=1`) or periodic cubic
+B-splines on a time grid `tc` times coarser (`tc > 1`), and the coarse operator is the Galerkin
+projection of the Jacobian, with the time derivative replaced by centred differences of order `2h`
+when `tc=1`. With `time=:fourier`, it holds the values at `Nc ≈ Ns/tc` equispaced coarse times
+(`Nc` odd), with spectral transfers in time (trigonometric interpolation, and its adjoint, the
+truncation of the temporal Fourier series); the coarse operator is collocated at the coarse times,
+with the Galerkin derivative of the B-splines as a compact scheme in time. Either way it is
+cyclic block-banded, and factorised by sparse LU (`solver=:sparse`) or, after
+`using BorderedMatrices`, by banded block elimination (`solver=:banded`).
+
 `cycle=:multiplicative` applies `pre` smoothing steps with weight `θ`, the coarse-grid correction and
 `post` smoothing steps; `cycle=:additive` adds the smoother, on the part of the residual outside
-the coarse space, to the coarse correction. Rebuilt about the orbit at every Newton iteration, by
-[`relinearise!`](@ref).
+the coarse space, to the coarse correction, and needs every slice (`tc=1`, `time=:splines`).
+Rebuilt about the orbit at every Newton iteration, by [`relinearise!`](@ref).
 
 ```julia
 coords, field! = odd_sine_coordinates(g)                 # Kuramoto–Sivashinsky example
-B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 16; tc=2, solver=:banded)
+B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 16; tc=2, solver=:banded)  # this
+B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 16; tc=2, time=:fourier)  # or this
 F = System(KSNonlinear(g), KSLinearised(g), dds!, x; linearise!, B, project=odd!)
 ```
 """
@@ -83,6 +109,7 @@ mutable struct TwoGrid{S, CO, FI}
       field!::FI                 # field!(a, c): field of coordinates
            r::Int                # coarse coordinates per time slice
           tc::Int                # coarsening factor in time
+        time::Symbol             # :splines (every slice if tc = 1) or :fourier
            h::Int                # half-width of the centred differences, tc = 1
        cycle::Symbol             # :multiplicative or :additive
          pre::Int                # smoothing steps before the coarse-grid correction
@@ -99,20 +126,23 @@ mutable struct TwoGrid{S, CO, FI}
         work::Any                # two scratch orbits
       builds::Int                # applications of the linearised operator to build K, cumulative
        nodes::Int                # coarse unknowns
+          Nc::Int                # coarse times, time = :fourier
 
-    function TwoGrid(smoother, coords, field!, r::Int; tc::Int=1, h::Int=4, neutral::Bool=true,
-                     cycle::Symbol=:multiplicative, pre::Int=2, post::Int=2, θ::Real=1.0,
-                     solver::Symbol=:sparse)
+    function TwoGrid(smoother, coords, field!, r::Int; tc::Int=1, time::Symbol=:splines, h::Int=4,
+                     neutral::Bool=true, cycle::Symbol=:multiplicative, pre::Int=2, post::Int=2,
+                     θ::Real=1.0, solver::Symbol=:sparse)
         cycle in (:multiplicative, :additive) ||
             throw(ArgumentError("cycle must be :multiplicative or :additive"))
-        cycle === :additive && tc > 1 &&
-            throw(ArgumentError("the additive cycle needs tc = 1"))
+        time in (:splines, :fourier) ||
+            throw(ArgumentError("time must be :splines or :fourier"))
+        cycle === :additive && (tc > 1 || time === :fourier) &&
+            throw(ArgumentError("the additive cycle needs every slice: tc = 1, time = :splines"))
         solver in (:sparse, :banded) ||
             throw(ArgumentError("solver must be :sparse or :banded"))
         tc >= 1 || throw(ArgumentError("tc must be at least 1"))
         return new{typeof(smoother), typeof(coords), typeof(field!)}(
-            smoother, coords, field!, r, tc, h, cycle, pre, post, θ, solver,
-            nothing, nothing, nothing, nothing, neutral, nothing, zeros(0, 0), nothing, 0, 0)
+            smoother, coords, field!, r, tc, time, h, cycle, pre, post, θ, solver,
+            nothing, nothing, nothing, nothing, neutral, nothing, zeros(0, 0), nothing, 0, 0, 0)
     end
 end
 
@@ -125,7 +155,42 @@ end
 # ---- periodic cubic B-splines in time: PeriodicBSplines.collocation(Ns, Nc) gives the values and
 #      s-derivatives of the Nc splines centred at 2π m/Nc, at the Ns slices 2π l/Ns ----
 
-nblocks(tg::TwoGrid) = tg.Pt === nothing ? size(tg.c, 2) : size(tg.Pt, 2)
+# ---- spectral transfers in time, time = :fourier: Ns and Nc odd, so no Nyquist harmonic ----
+# trigonometric interpolation of the rows of Y from Nc to Ns equispaced times
+function _tprolong(Y::AbstractMatrix{Float64}, Ns::Int)
+    Ŷ = rfft(Y, 2)
+    Z = zeros(ComplexF64, size(Y, 1), Ns ÷ 2 + 1)
+    Z[:, axes(Ŷ, 2)] .= Ŷ
+    return irfft(Z, Ns, 2) .* (Ns / size(Y, 2))
+end
+
+# its adjoint: the temporal Fourier series truncated to |n| ≤ (Nc - 1)/2, at the Nc coarse times
+_trestrict(Y::AbstractMatrix{Float64}, Nc::Int) = irfft(rfft(Y, 2)[:, 1:Nc ÷ 2 + 1], Nc, 2)
+
+# the values at the Nc coarse times of the trigonometric interpolant of X[:, :, l], l = 1, …, Ns:
+# every harmonic n of the slices contributes to the coarse harmonic n mod Nc
+function _tsample(X::Array{Float64, 3}, Nc::Int)
+    Ns = size(X, 3)
+    X̂ = fft(X, 3)
+    F = zeros(ComplexF64, size(X, 1), size(X, 2), Nc)
+    for i in 1:Ns
+        n = i <= Ns ÷ 2 + 1 ? i - 1 : i - 1 - Ns
+        view(F, :, :, mod(n, Nc) + 1) .+= view(X̂, :, :, i)
+    end
+    return real.(ifft(F, 3)) .* (Nc / Ns)
+end
+
+# the coarse equations multiplied by the mass stencil of the compact derivative, time = :fourier
+function _premultiply(Y::AbstractMatrix{Float64})
+    m, Nb = mass_stencil(), size(Y, 2)
+    Z = zeros(size(Y))
+    for i in 1:Nb, j in -3:3
+        view(Z, :, i) .+= m[j + 4] .* view(Y, :, mod(i - 1 + j, Nb) + 1)
+    end
+    return Z
+end
+
+nblocks(tg::TwoGrid) = tg.time === :fourier ? tg.Nc : tg.Pt === nothing ? size(tg.c, 2) : size(tg.Pt, 2)
 ncoarse(tg::TwoGrid) = tg.r + (tg.V === nothing ? 0 : size(tg.V, 2))
 
 # ---- restriction and prolongation, slice by slice ----
@@ -159,6 +224,7 @@ end
 function restrict(tg::TwoGrid, p::Orbit)
     tg.coords(tg.c, p.a)
     Y = _restrict_slices(tg, tg.c)
+    tg.time === :fourier && (Y = _trestrict(Y, tg.Nc))
     tg.Pt === nothing || (Y = Y * tg.Pt)
     return vcat(vec(Y), p.p)
 end
@@ -167,7 +233,8 @@ end
 function prolong!(out::Orbit, tg::TwoGrid, y::AbstractVector)
     rc, Nb = ncoarse(tg), nblocks(tg)
     Y = reshape(view(y, 1:rc * Nb), rc, Nb)
-    _prolong_slices!(tg.c, tg, tg.Pt === nothing ? Y : Y * tg.PtT)
+    _prolong_slices!(tg.c, tg, tg.time === :fourier ? _tprolong(Y, size(tg.c, 2)) :
+                               tg.Pt === nothing ? Y : Y * tg.PtT)
     tg.field!(out.a, tg.c)
     out.p .= view(y, rc * Nb + 1:length(y))
     return out
@@ -197,12 +264,12 @@ function relinearise!(tg::TwoGrid, F, x::Orbit)
             tg.coords(tg.c, tmp)
             V[r + 1:end, e, :] .= view(tg.c, r + 1:nx, :)
         end
-        for l in 1:Ns
+        for l in 1:Ns                                  # Gram–Schmidt, diag(R) > 0: smooth in s
             Q, R_ = qr(V[:, :, l])
             Q = Matrix(Q)
             for e in axes(V, 2)
                 if abs(R_[e, e]) > 1e-12 * max(1, norm(view(V, :, :, l)))
-                    V[:, e, l] .= view(Q, :, e)
+                    V[:, e, l] .= sign(R_[e, e]) .* view(Q, :, e)
                 else                                   # no profile at this slice: any unit vector
                     V[:, e, l] .= 0; V[r + e, e, l] = 1
                 end
@@ -252,7 +319,7 @@ function relinearise!(tg::TwoGrid, F, x::Orbit)
         return G
     end
 
-    if tg.tc == 1
+    if tg.time === :splines && tg.tc == 1
         # ---- every slice; the time derivative by centred differences, ω wⱼ/Δs Q_lᵀ Q_k ----
         tg.Pt, tg.PtT = nothing, nothing
         Nb, hb = Ns, tg.h
@@ -265,7 +332,7 @@ function relinearise!(tg::TwoGrid, F, x::Orbit)
         end
         b = reduce(hcat, [vec(B) for B in bcol])
         c = reduce(hcat, [vec(B) for B in brow])
-    else
+    elseif tg.time === :splines
         # ---- B-splines φ_m in time, the field Q(s) Σ_m φ_m(s) y_m: its derivative is
         #      Q φ'_m y_m + Q' φ_m y_m, with Q_lᵀ Q_l = I and Q_lᵀ Q'_l nonzero only on the
         #      neutral profiles, Vᵀ V' ----
@@ -274,29 +341,54 @@ function relinearise!(tg::TwoGrid, F, x::Orbit)
         Nb > 2hb || throw(ArgumentError("need more than $(2hb) coarse time points"))
         Pt, Pd = collocation(Ns, Nb)
         tg.Pt  = Pt
-        QdQ = zeros(rc, rc, Ns)                        # Q_lᵀ ∂s Q_l
-        if tg.V !== nothing
-            for e in axes(tg.V, 2)
-                fill!(tg.c, 0); tg.c .= view(tg.V, :, e, :)
-                tg.field!(Φ, tg.c)
-                F.dds!(tmp, Φ)
-                tg.coords(tg.c, tmp)
-                for l in 1:Ns, e′ in axes(tg.V, 2)
-                    QdQ[r + e′, r + e, l] = dot(view(tg.V, :, e′, l), view(tg.c, :, l))
-                end
-            end
-        end
+        QdQ = _neutral_derivative(tg, F, Φ, tmp)
         PtT, PdT = sparse(transpose(Pt)), sparse(transpose(Pd))
         tg.PtT = PtT
         Kb = _spline_blocks(A, QdQ, PtT, PdT, ω, hb, Nb)
         block = (l, k) -> Kb[:, :, mod(k - l + hb, Nb) + 1, l]
         b = reduce(hcat, [vec(B * Pt) for B in bcol])
         c = reduce(hcat, [vec(B * Pt) for B in brow])
+    else
+        # ---- Fourier: the values y_m at Nc odd coarse times s_m, the field Q(s) ỹ(s) with ỹ the
+        #      trigonometric interpolant. R P = (Ns/Nc) I, and R 𝒥 P ≈ (Ns/Nc) (ω ∂s + A + ω QᵀQ′)
+        #      collocated at the s_m, with ∂s the compact derivative M⁻¹D/Δ of the B-splines; the
+        #      equations multiplied by M: block (m, m + j) = (Ns/Nc) (ω dⱼ/Δ I + mⱼ C(s_{m+j})),
+        #      C = A + ω QᵀQ′ evaluated at the coarse times exactly from its values at the slices ----
+        Nb = max(7, 2 * round(Int, (Ns / tg.tc - 1) / 2) + 1)
+        Nb <= Ns || throw(ArgumentError("need at least $Nb time slices"))
+        hb = 3
+        tg.Pt, tg.PtT, tg.Nc = nothing, nothing, Nb
+        Cc = _tsample(A .+ ω .* _neutral_derivative(tg, F, Φ, tmp), Nb)
+        m, d = mass_stencil(), derivative_stencil()
+        f, Δ = Ns / Nb, 2π / Nb
+        block = function (l, k)
+            j = mod(k - l + hb, Nb) - hb
+            return f .* (ω * d[j + 4] / Δ .* Matrix{Float64}(I, rc, rc) .+ m[j + 4] .* view(Cc, :, :, k))
+        end
+        b = reduce(hcat, [vec(_premultiply(_trestrict(B, Nb))) for B in bcol])
+        c = reduce(hcat, [vec(_trestrict(B, Nb)) for B in brow])
     end
 
     tg.K     = _factorise_coarse(Val(tg.solver), block, rc, Nb, hb, b, c)
     tg.nodes = rc * Nb + q
     return tg
+end
+
+# Q_lᵀ ∂s Q_l at the slices, rc × rc × Ns: nonzero only on the neutral profiles, Vᵀ V′
+function _neutral_derivative(tg::TwoGrid, F, Φ, tmp)
+    rc, Ns = ncoarse(tg), size(tg.c, 2)
+    QdQ = zeros(rc, rc, Ns)
+    tg.V === nothing && return QdQ
+    for e in axes(tg.V, 2)
+        fill!(tg.c, 0); tg.c .= view(tg.V, :, e, :)
+        tg.field!(Φ, tg.c)
+        F.dds!(tmp, Φ)
+        tg.coords(tg.c, tmp)
+        for l in 1:Ns, e′ in axes(tg.V, 2)
+            QdQ[tg.r + e′, tg.r + e, l] = dot(view(tg.V, :, e′, l), view(tg.c, :, l))
+        end
+    end
+    return QdQ
 end
 
 # the blocks of K with B-splines in time, K_mm' = Σ_l φ_m(s_l) (φ_m'(s_l) (A_l + ω Q_lᵀQ'_l) +
@@ -346,6 +438,14 @@ _factorise_coarse(::Val{:banded}, args...) =
 
 coarse_solve(K, y::Vector{Float64}) = K \ y
 
+# the right-hand side of the coarse equations, R times the residual; with time = :fourier the
+# equations are multiplied by the mass stencil, and so is its field part
+function _coarse_rhs(tg::TwoGrid, y::Vector{Float64})
+    tg.time === :fourier || return y
+    n = ncoarse(tg) * nblocks(tg)
+    return vcat(vec(_premultiply(reshape(y[1:n], ncoarse(tg), nblocks(tg)))), y[n + 1:end])
+end
+
 """
     coarse_bytes(tg::TwoGrid) -> bytes
 
@@ -377,7 +477,7 @@ function precondition!(out::Orbit, tg::TwoGrid, F, p::Orbit)
 
     # ---- coarse-grid correction ----
     _residual!(res, tg, F, p, z, zero_z)
-    z .+= prolong!(t, tg, coarse_solve(tg.K, restrict(tg, res)))
+    z .+= prolong!(t, tg, coarse_solve(tg.K, _coarse_rhs(tg, restrict(tg, res))))
     F.project(z.a)
 
     for _ in 1:tg.post

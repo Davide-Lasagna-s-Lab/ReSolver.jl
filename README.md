@@ -56,14 +56,21 @@ discretisation, on a CPU or a GPU.
   also stop a search.
 - **Any array, any device.** The search only broadcasts fields and takes their inner products. The
   fields can be CPU arrays, GPU arrays, single or double precision.
-- **Light.** The package depends only on the Julia standard library.
+- **Light.** The package depends on the Julia standard library, on FFTW, for the spectral transfers
+  in time of the two-grid preconditioner, and on
+  [PeriodicBSplines.jl](https://github.com/Davide-Lasagna-s-Lab/PeriodicBSplines.jl), for its
+  coarse time grid.
 
 ## Installation
 
-ReSolver is not registered. From the Julia REPL,
+ReSolver and PeriodicBSplines.jl are not registered. From the Julia REPL, add PeriodicBSplines.jl
+first and then ReSolver, both from GitHub. PeriodicBSplines.jl must be added explicitly, because
+the `[sources]` section of the project file of a package is not used when the package is a
+dependency.
 
 ```julia
 using Pkg
+Pkg.add(url="https://github.com/Davide-Lasagna-s-Lab/PeriodicBSplines.jl")
 Pkg.add(url="https://github.com/Davide-Lasagna-s-Lab/ReSolver.jl")
 ```
 
