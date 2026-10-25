@@ -1,0 +1,2 @@
+repeat8 q=2 plain r=0 tc=0 V(0,0) h=0           T=  375.1 Ns= 1167 | steps  4 its [556, 598, 575, 600] | ‖r‖ 2.8e-13 | actions  2329 (J  2329 + build    0) |   452.8 s | Krylov   179.6 MB, coarse     0.0 MB (0 unknowns)
+repeat8 q=4 plain1 r=0 tc=0 V(0,0) h=0          T=  750.1 Ns= 2333 | steps  1 its [1016] | ‖r‖ 7.3e-06 | actions  1016 (J  1016 + build    0) |   661.0 s | Krylov   607.4 MB, coarse     0.0 MB (0 unknowns)

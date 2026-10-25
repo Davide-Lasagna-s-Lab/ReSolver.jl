@@ -69,6 +69,8 @@ if "map" in which:
 # ---------------------------------------------------------------- cost against T
 if "T" in which:
     R = load("T_scan.txt")
+    if os.path.exists(os.path.join(RES, "T_twogrid.txt")):    # two-grid rows rerun with the final code
+        R = [d for d in R if d["method"] != "twogrid"] + load("T_twogrid.txt")
     cfg = [("twogrid", 12, 1, 1, "two-grid, $r=12$, every slice, V(1,1)", GREEN, "^", "-"),
            ("twogrid", 16, 1, 1, "two-grid, $r=16$, every slice, V(1,1)", BLUE, "s", "-"),
            ("twogrid", 16, 2, 2, "two-grid, $r=16$, $t_c=2$, V(2,2)", PURPLE, "D", "-"),
@@ -78,23 +80,23 @@ if "T" in which:
         return sorted(out, key=lambda d: d["T"])
     fig, ax = plt.subplots(1, 4, figsize=(8.0, 2.55), gridspec_kw=dict(wspace=0.45))
     plain = sel(("plain", "plain1"))
+    methods = [("plain", None, None, None, "$B$ only", GREY, "o")] + [(m, r, tc, pre, l, c, mk) for (m, r, tc, pre, l, c, mk, ls) in cfg]
+    def val(d, key):
+        if key == "its": return np.mean(d["its"])
+        if key == "act": return d["actions"] / d["steps"]
+        if key == "sec": return d["sec"] / d["steps"]
+        return d["kryl"] + d["coarse"]
     for a, key, lab in zip(ax, ("its", "act", "sec", "mem"),
                            ("GMRES iterations\nper Newton step", "Jacobian actions\nper Newton step",
                             "seconds per Newton step", "memory (MB)")):
-        def val(d):
-            if key == "its": return np.mean(d["its"])
-            if key == "act": return d["actions"] / d["steps"]
-            if key == "sec": return d["sec"] / d["steps"]
-            return d["kryl"] + d["coarse"]
-        for case, mk in (("prime", "o"), ("repeat1", "s"), ("repeat8", "D")):
-            p = [d for d in plain if d["case"] == case]
-            if p: a.plot([d["T"] for d in p], [val(d) for d in p], mk, color=GREY, ms=3.5, mfc="none" if case != "prime" else GREY)
-        pts = sorted(plain, key=lambda d: d["T"])
-        a.plot([d["T"] for d in pts], [val(d) for d in pts], "-", color=GREY, lw=0.8, alpha=0.6, label="$B$ only")
-        for (m, r, tc, pre, l, c, mk, ls) in cfg:
-            dd = [d for d in sel((m,), r, tc, pre)]
-            a.plot([d["T"] for d in dd], [val(d) for d in dd], mk, color=c, ms=3, mfc="none", lw=0)
-            a.plot([d["T"] for d in dd], [val(d) for d in dd], ls, color=c, lw=0.8, alpha=0.6, label=l)
+        for (m, r, tc, pre, l, c, mk) in methods:
+            dd = plain if m == "plain" else sel((m,), r, tc, pre)
+            for case, fill, ls in (("repeat1", "none", "-"), ("repeat8", "none", ""), ("prime", c, "")):
+                p = sorted([d for d in dd if d["case"] == case], key=lambda d: d["T"])
+                if not p: continue
+                a.plot([d["T"] for d in p], [val(d, key) for d in p], marker=mk if case != "repeat8" else "D",
+                       ls=ls if ls else "none", color=c, ms=3.2, mfc=fill, lw=0.9,
+                       label=l if case == "repeat1" else None)
         a.set_xscale("log"); a.set_yscale("log"); a.set_xlabel("period $T$"); a.set_title(lab, fontsize=8)
     h, l = ax[0].get_legend_handles_labels()
     fig.legend(h, l, frameon=False, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=3)
@@ -102,20 +104,21 @@ if "T" in which:
 
     # total Jacobian actions to convergence, two-grid only, and B only where converged
     fig, ax = plt.subplots(1, 2, figsize=(6.8, 2.6), gridspec_kw=dict(wspace=0.35))
-    a = ax[0]
-    p = [d for d in plain if d["method"] == "plain" and d["conv"]]
-    a.plot([d["T"] for d in p], [d["actions"] for d in p], "o", color=GREY, ms=3.5, label="$B$ only")
-    for (m, r, tc, pre, l, c, mk, ls) in cfg:
-        dd = [d for d in sel((m,), r, tc, pre) if d["conv"]]
-        a.plot([d["T"] for d in dd], [d["actions"] for d in dd], mk, color=c, ms=3, mfc="none", label=l)
-    a.set_xscale("log"); a.set_yscale("log"); a.set_xlabel("period $T$"); a.set_ylabel("Jacobian actions to convergence")
-    a = ax[1]
-    for (m, r, tc, pre, l, c, mk, ls) in cfg:
-        dd = sel((m,), r, tc, pre)
-        a.plot([d["T"] for d in dd], [d["coarse"] for d in dd], mk + ls, color=c, ms=3, mfc="none", lw=0.8)
-    pts = sorted(plain, key=lambda d: d["T"])
-    a.plot([d["T"] for d in pts], [d["kryl"] for d in pts], "o-", color=GREY, ms=3, lw=0.8)
-    a.set_xscale("log"); a.set_yscale("log"); a.set_xlabel("period $T$"); a.set_ylabel("MB: Krylov basis ($B$ only)\nor coarse factors (two-grid)")
+    for (m, r, tc, pre, l, c, mk) in methods:
+        dd = plain if m == "plain" else sel((m,), r, tc, pre)
+        for case, fill, ls in (("repeat1", "none", "-"), ("repeat8", "none", ""), ("prime", c, "")):
+            p = sorted([d for d in dd if d["case"] == case and d["conv"] and d["method"] != "plain1"], key=lambda d: d["T"])
+            if p:
+                ax[0].plot([d["T"] for d in p], [d["actions"] for d in p], marker=mk if case != "repeat8" else "D",
+                           ls=ls if ls else "none", color=c, ms=3.2, mfc=fill, lw=0.9, label=l if case == "repeat1" else None)
+            p = sorted([d for d in dd if d["case"] == case], key=lambda d: d["T"])
+            if p:
+                ax[1].plot([d["T"] for d in p], [d["kryl"] if m == "plain" else d["coarse"] for d in p],
+                           marker=mk if case != "repeat8" else "D", ls=ls if ls else "none", color=c, ms=3.2,
+                           mfc=fill, lw=0.9)
+    for a in ax: a.set_xscale("log"); a.set_yscale("log"); a.set_xlabel("period $T$")
+    ax[0].set_ylabel("Jacobian actions, whole search")
+    ax[1].set_ylabel("MB: Krylov basis ($B$ only)\nor coarse factors (two-grid)")
     h, l = ax[0].get_legend_handles_labels()
     fig.legend(h, l, frameon=False, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=3)
     save(fig, "tg_total")
@@ -155,7 +158,9 @@ if "r" in which:
                 ax[1].plot([d["r"] for d in dd], [d["coarse"] for d in dd], "o-", color=cols[tc], ms=3, lw=1.1, label=f"$t_c = {tc}$")
     ax[0].set_yscale("log"); ax[0].set_xlabel("sine modes per slice $r$"); ax[0].set_ylabel("Jacobian actions to convergence")
     ax[1].set_yscale("log"); ax[1].set_xlabel("sine modes per slice $r$"); ax[1].set_ylabel("coarse factors (MB)")
-    ax[0].legend(frameon=False, fontsize=6.5, ncol=2); ax[1].legend(frameon=False, fontsize=7)
+    h, l = ax[0].get_legend_handles_labels()
+    fig.legend(h, l, frameon=False, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=4)
+    ax[1].legend(frameon=False, fontsize=7)
     ax[0].set_title(f"$T = {64 * T0:.0f}$", fontsize=8.5); ax[1].set_title(f"$T = {64 * T0:.0f}$", fontsize=8.5)
     save(fig, "tg_truncation_cost")
 
@@ -168,11 +173,12 @@ if "cycle" in which:
             name = ("additive" if d["method"] == "additive" else f"V({d['pre']},{d['post']})") + \
                    (f", $t_c={d['tc']}$" if d["tc"] > 1 else "") + (f", FD{2 * d['h']}" if d["tc"] == 1 else "")
             labs.append(name); acts.append(d["actions"]); its.append(np.mean(d["its"])); conv.append(d["conv"])
-        fig, ax = plt.subplots(1, 2, figsize=(7.4, 0.25 * len(R) + 0.8), gridspec_kw=dict(wspace=0.08), sharey=True)
+        fig, ax = plt.subplots(1, 2, figsize=(7.4, 0.25 * len(R) + 0.8), gridspec_kw=dict(wspace=0.12), sharey=True)
         y = np.arange(len(R))[::-1]
-        ax[0].barh(y, its, color=[BLUE if c else RED for c in conv]); ax[0].set_xscale("log")
-        ax[0].set_xlabel("GMRES iterations per Newton step")
+        ax[0].barh(y, its, color=[BLUE if c else RED for c in conv])
+        ax[0].set_xlabel("GMRES iterations per step"); ax[0].set_xlim(0, 62)
         ax[1].barh(y, acts, color=[BLUE if c else RED for c in conv]); ax[1].set_xscale("log")
-        ax[1].set_xlabel("Jacobian actions to convergence")
+        ax[1].xaxis.set_minor_formatter(mt.NullFormatter())
+        ax[1].set_xlabel("Jacobian actions per search")
         ax[0].set_yticks(y); ax[0].set_yticklabels(labs, fontsize=7.5)
         save(fig, "tg_cycles")

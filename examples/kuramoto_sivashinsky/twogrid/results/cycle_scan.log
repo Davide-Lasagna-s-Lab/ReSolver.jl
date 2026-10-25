@@ -1,0 +1,22 @@
+repeat1 q=8 additive r=16 tc=1 V(0,0) h=4       T=  203.0 Ns=  585 | steps 12 its [25, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 1.7e-09 | actions   889 (J   685 + build  204) |    32.9 s | Krylov     9.1 MB, coarse    42.0 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,0) h=4 T=  203.0 Ns=  585 | steps 12 its [7, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.5e-08 | actions  1550 (J  1346 + build  204) |    24.2 s | Krylov     9.1 MB, coarse    42.0 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(0,1) h=4 T=  203.0 Ns=  585 | steps 12 its [1, 19, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.1e-10 | actions  1456 (J  1252 + build  204) |    21.8 s | Krylov     9.1 MB, coarse    42.0 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,1) h=4 T=  203.0 Ns=  585 | steps  3 its [2, 3, 7] | ‖r‖ 2.7e-12 | actions    93 (J    42 + build   51) |     1.4 s | Krylov     1.2 MB, coarse    42.0 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(2,2) h=4 T=  203.0 Ns=  585 | steps  3 its [2, 2, 2] | ‖r‖ 7.9e-14 | actions    93 (J    42 + build   51) |     1.6 s | Krylov     0.4 MB, coarse    42.0 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,1) h=1 T=  203.0 Ns=  585 | steps  3 its [2, 6, 12] | ‖r‖ 4.1e-12 | actions   117 (J    66 + build   51) |     0.9 s | Krylov     1.9 MB, coarse    13.7 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,1) h=2 T=  203.0 Ns=  585 | steps  3 its [2, 2, 6] | ‖r‖ 5.2e-12 | actions    87 (J    36 + build   51) |     0.8 s | Krylov     1.0 MB, coarse    23.2 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,1) h=8 T=  203.0 Ns=  585 | steps  3 its [2, 2, 5] | ‖r‖ 4.6e-12 | actions    84 (J    33 + build   51) |     2.2 s | Krylov     0.9 MB, coarse    79.4 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,0) h=1 T=  203.0 Ns=  585 | steps 12 its [4, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 3.2e-07 | actions  1544 (J  1340 + build  204) |    20.3 s | Krylov     9.1 MB, coarse    13.7 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=1 V(1,0) h=8 T=  203.0 Ns=  585 | steps  5 its [3, 58, 60, 60, 60] | ‖r‖ 7.6e-11 | actions   572 (J   487 + build   85) |    11.3 s | Krylov     9.1 MB, coarse    79.4 MB (9946 unknowns)
+repeat1 q=8 multiplicative r=16 tc=2 V(1,0) h=4 T=  203.0 Ns=  585 | steps  3 its [8, 40, 46] | ‖r‖ 5.9e-12 | actions   242 (J   191 + build   51) |     4.2 s | Krylov     7.0 MB, coarse    16.2 MB (4965 unknowns)
+repeat1 q=8 multiplicative r=16 tc=2 V(1,1) h=4 T=  203.0 Ns=  585 | steps  3 its [2, 6, 6] | ‖r‖ 2.6e-12 | actions    99 (J    48 + build   51) |     0.9 s | Krylov     1.0 MB, coarse    16.2 MB (4965 unknowns)
+repeat1 q=8 multiplicative r=16 tc=2 V(2,2) h=4 T=  203.0 Ns=  585 | steps  3 its [2, 2, 2] | ‖r‖ 2.3e-12 | actions    93 (J    42 + build   51) |     0.7 s | Krylov     0.4 MB, coarse    16.2 MB (4965 unknowns)
+Precompiling BorderedMatrices...
+   1807.5 ms  ✓ BorderedMatrices
+  1 dependency successfully precompiled in 2 seconds
+Precompiling ReSolver...
+   1789.3 ms  ✓ ReSolver
+  1 dependency successfully precompiled in 2 seconds. 5 already precompiled.
+Precompiling ReSolverBorderedMatricesExt...
+   1088.0 ms  ✓ ReSolver → ReSolverBorderedMatricesExt
+  1 dependency successfully precompiled in 1 seconds. 7 already precompiled.

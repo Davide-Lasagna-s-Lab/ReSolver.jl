@@ -17,8 +17,9 @@ $z \leftarrow z + \theta B^{-1}(b - \mathcal{J} z)$, a preconditioned Richardson
 damps the error at small scales and high frequencies, where $B \approx \mathcal{J}$, and leaves the
 rest. The *coarse-grid correction* $z \leftarrow z + P K^{-1} R\,(b - \mathcal{J} z)$ solves for
 that rest in a coarse space, with prolongation $P$, restriction $R = P^{\mathsf T}$ and coarse
-operator $K \approx R\,\mathcal{J} P$. The default cycle is one smoothing step, the coarse-grid
-correction and one smoothing step, which costs two Jacobian actions on top of the one of GMRES.
+operator $K \approx R\,\mathcal{J} P$. The default cycle is two smoothing steps, the coarse-grid
+correction and two smoothing steps, which costs four Jacobian actions on top of the one of GMRES.
+Smoothing on both sides of the coarse-grid correction matters: one-sided cycles stall.
 The cycle is a fixed linear operator, so plain right-preconditioned GMRES applies.
 
 ## The coarse space
@@ -43,7 +44,7 @@ For the Kuramoto–Sivashinsky example, in the odd subspace,
 
 ```julia
 coords, field! = odd_sine_coordinates(g)
-B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 16; tc=2, solver=:banded)
+B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 16; tc=2, solver=:banded)  # V(2,2)
 F = System(KSNonlinear(g), KSLinearised(g), dds!, x; linearise!, B, project=odd!)
 solve!(x, F, NewtonHookstep(krylov_dim=60))
 ```

@@ -39,7 +39,8 @@
 #
 # Cycles. With `cycle=:multiplicative`, `pre` smoothing steps, the coarse-grid correction and
 # `post` smoothing steps, the first from z = 0; each step after the first costs one Jacobian
-# action. The default, pre = post = 1, is the symmetric two-grid cycle. With `cycle=:additive`
+# action. The default, pre = post = 2, is a symmetric two-grid cycle: smoothing on both sides of the
+# coarse-grid correction is what makes the cycle robust (one-sided cycles stall). With `cycle=:additive`
 # (tc = 1 only), z = B⁻¹ (I - P R) b + P K⁻¹ R b, no Jacobian action.
 #
 # The preconditioner applies the Jacobian, so it needs the System: the search calls the methods
@@ -49,15 +50,16 @@
 using SparseArrays
 
 """
-    TwoGrid(B, coords, field!, r; tc=1, h=4, cycle=:multiplicative, pre=1, post=1, θ=1,
-            solver=:sparse)
+    TwoGrid(B, coords, field!, r; tc=1, h=4, neutral=true, cycle=:multiplicative, pre=2, post=2,
+            θ=1, solver=:sparse)
 
 Two-grid preconditioner for the hookstep, with the preconditioner `B` as smoother. The coarse
 space holds the first `r` spatial coordinates of each time slice, at every slice (`tc=1`) or as
 periodic cubic B-splines on a time grid `tc` times coarser (`tc > 1`). `coords(c, a)` writes the
 coordinates of the field `a` into the `nx × Ns` matrix `c`, one column per time slice, ordered from
 large to small scales and orthonormal in the inner product of the fields; `coords(a)` returns them
-as a new matrix, and `field!(a, c)` is the inverse.
+as a new matrix, and `field!(a, c)` is the inverse. With `neutral=true` the coarse space also
+holds, at each slice, the profiles of the neutral directions, ∂s a and the drift derivatives.
 
 The coarse operator is the Galerkin projection of the Jacobian, with the time derivative replaced
 by centred differences of order `2h` when `tc=1`. It is factorised by sparse LU (`solver=:sparse`)
@@ -69,7 +71,7 @@ the coarse space, to the coarse correction. Rebuilt about the orbit at every New
 
 ```julia
 coords, field! = odd_sine_coordinates(g)                 # Kuramoto–Sivashinsky example
-B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 12; tc=4)
+B = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 16; tc=2, solver=:banded)
 F = System(KSNonlinear(g), KSLinearised(g), dds!, x; linearise!, B, project=odd!)
 ```
 """
@@ -97,7 +99,7 @@ mutable struct TwoGrid{S, CO, FI}
        nodes::Int                # coarse unknowns
 
     function TwoGrid(smoother, coords, field!, r::Int; tc::Int=1, h::Int=4, neutral::Bool=true,
-                     cycle::Symbol=:multiplicative, pre::Int=1, post::Int=1, θ::Real=1.0,
+                     cycle::Symbol=:multiplicative, pre::Int=2, post::Int=2, θ::Real=1.0,
                      solver::Symbol=:sparse)
         cycle in (:multiplicative, :additive) ||
             throw(ArgumentError("cycle must be :multiplicative or :additive"))

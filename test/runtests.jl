@@ -332,7 +332,7 @@ end
 end
 
 
-@testset "Two-grid preconditioner                                  " begin
+@testset "Two-grid preconditioner                                 " begin
     coords, field! = fourier_coordinates(g)
     u, v = demean!(random_field()), demean!(random_field())
 

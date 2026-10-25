@@ -1,7 +1,8 @@
 # The two-grid study on Kuramoto–Sivashinsky: one line per Newton search in results/<part>.txt.
 #
 #     julia --project=. study.jl T        cost against the period, B only and two-grid
-#                                         (Ttwogrid or Tplain for one of the two)
+#                                         (Ttwogrid, into T_twogrid.txt, or Tplain for one part;
+#                                         Tplain repeat1:64 … runs only the cases listed)
 #     julia --project=. study.jl r        truncation level in space (r) and in time (tc)
 #     julia --project=. study.jl cycle    cycles and time derivative of the coarse operator
 #
@@ -29,12 +30,25 @@ cases(which) = which === :prime    ? [("prime", M, () -> prime_case(M)) for M in
 
 part = isempty(ARGS) ? "T" : ARGS[1]
 
+# the configurations of the two-grid preconditioner compared against the period
+const CONFIGS = ((12, 1, 1, 1), (16, 1, 1, 1), (16, 2, 2, 2), (16, 4, 2, 2))   # r, tc, pre, post
+
+# one search of every kind on the shortest orbit, so that compilation is not timed
+function warmup()
+    x, g = prime_case(1)
+    run_newton(x, g; kind=:plain)
+    for (r, tc, pre, post) in CONFIGS
+        run_newton(x, g; r, tc, pre, post)
+    end
+end
+
 if part in ("T", "Ttwogrid")
     # ---- two-grid: every case ----
-    open(joinpath(OUT, "T_scan.txt"), "a") do io
+    warmup()
+    open(joinpath(OUT, part == "T" ? "T_scan.txt" : "T_twogrid.txt"), "a") do io
         for which in (:prime, :repeat1, :repeat8), (case, q, make) in cases(which)
             x, g = make()
-            for (r, tc, pre, post) in ((12, 1, 1, 1), (16, 1, 1, 1), (16, 2, 2, 2), (16, 4, 2, 2))
+            for (r, tc, pre, post) in CONFIGS
                 o = run_newton(x, g; r, tc, pre, post)
                 record(io, case, q, "twogrid", o; r, tc, pre, post, h=4)
             end
@@ -42,9 +56,13 @@ if part in ("T", "Ttwogrid")
     end
 end
 if part in ("T", "Tplain")
-    # ---- B only: full Newton up to T ≈ 450, one Newton step beyond ----
+    # ---- B only: full Newton up to T ≈ 450, one Newton step beyond; the cases "case:q" given
+    #      after Tplain, or all ----
+    only = ARGS[2:end]
+    part == "Tplain" && warmup()
     open(joinpath(OUT, "T_scan.txt"), "a") do io
         for which in (:prime, :repeat1, :repeat8), (case, q, make) in cases(which)
+            isempty(only) || "$case:$q" in only || continue
             x, g = make()
             T = 2π / frequency(x)
             o = run_newton(x, g; kind=:plain, maxiter=T < 450 ? 15 : 1)
