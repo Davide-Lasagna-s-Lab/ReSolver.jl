@@ -196,11 +196,12 @@ for name, idx in SETS.items():
 # Galerkin K = P^T J P, P = r modes of a basis at every slice plus the period
 S2 = S1 @ S1
 TG = {}
-for bname, Gb in BASES.items():
-    Q = PHI @ Gb
+PERSLICE = "SVD of the slow directions, per slice"
+for bname, Gb in list(BASES.items()) + [(PERSLICE, None)]:
     for r in (6, 8, 10, 12, 14, 16):
         P = np.zeros((nb + 1, r * Ns + 1))
         for l in range(Ns):
+            Q = d["U"][l] if Gb is None else PHI @ Gb
             P[32 * l:32 * (l + 1), r * l:r * (l + 1)] = Q[:, :r]
         P[nb, -1] = 1.0
         C = np.eye(nb + 1) - P @ np.linalg.solve(P.T @ Jb @ P, P.T @ Jb)
@@ -307,13 +308,13 @@ a.set_xlabel("Re $\\lambda$"); a.set_ylabel("Im $\\lambda$"); a.set_title("eigen
 a.annotate("slow for GMRES:\n$|1 - \\lambda| < 0.6$", xy=(1.3, 0.3), xytext=(1.2, 2.2), color=ORANGE, fontsize=7,
            arrowprops=dict(arrowstyle="-", color=ORANGE, lw=0.6))
 a.text(1.9, -2.9, "amplified: $|\\lambda| > 1$", color=RED, fontsize=7)
-cols = {"sines": GREY, "SVD of the slow directions": GREEN, "smoothed test vectors": PURPLE}
+cols = {"sines": GREY, "SVD of the slow directions": GREEN, "smoothed test vectors": PURPLE, PERSLICE: BLUE}
 rr = (6, 8, 10, 12, 14, 16)
-for bname in BASES:
+for bname in list(BASES) + [PERSLICE]:
     ax[1].plot(rr, [np.sum(np.abs(TG[(bname, r)]) > 0.1) for r in rr], "o-", color=cols[bname], ms=2.5, lw=1.1, label=bname)
     ax[2].semilogy(rr, [np.abs(TG[(bname, r)]).max() for r in rr], "o-", color=cols[bname], ms=2.5, lw=1.1, label=bname)
 ax[1].set_xlabel("modes kept $r$"); ax[1].set_ylabel("eigenvalues of $E$ with $|\\lambda| > 0.1$")
-ax[1].set_title("two-grid V(2,2), $T = 25$", fontsize=8.5); ax[1].legend(frameon=False, fontsize=6.5)
+ax[1].set_title("two-grid V(2,2), $T = 25$", fontsize=8.5); ax[1].legend(frameon=False, fontsize=6.5, loc="upper right")
 ax[2].axhline(1, color=GREY, lw=0.5, ls=":")
 ax[2].set_xlabel("modes kept $r$"); ax[2].set_ylabel("largest $|\\lambda|$ of $E$"); ax[2].set_title("spectral radius of the cycle", fontsize=8.5)
 save(fig, "modes_smoother")
