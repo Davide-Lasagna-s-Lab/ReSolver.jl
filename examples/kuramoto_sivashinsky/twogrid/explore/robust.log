@@ -1,0 +1,10 @@
+q=64 r=16 tc=1 V(1,1) T= 1623.7 Ns= 4673 | steps  3 its [2, 7, 15] | ‖r‖ 5.3e-12 | actions   129 (J    78 + build   51) |    18.6 s | Krylov    19.1 MB, coarse   336.7 MB (79442 unknowns)
+q=64 r=12 tc=2 V(2,2) T= 1623.7 Ns= 4673 | steps  5 its [7, 7, 7, 7, 7] | ‖r‖ 1.7e-13 | actions   260 (J   195 + build   65) |    49.8 s | Krylov     9.6 MB, coarse    76.5 MB (30369 unknowns)
+q=64 r=16 tc=2 V(1,1) T= 1623.7 Ns= 4673 | steps  3 its [17, 20, 19] | ‖r‖ 6.9e-12 | actions   225 (J   174 + build   51) |    41.5 s | Krylov    25.1 MB, coarse   130.5 MB (39713 unknowns)
+q=64 r=16 tc=2 V(2,2) T= 1623.7 Ns= 4673 | steps  3 its [5, 7, 6] | ‖r‖ 4.0e-12 | actions   153 (J   102 + build   51) |    34.1 s | Krylov     9.6 MB, coarse   130.5 MB (39713 unknowns)
+q=64 r=16 tc=4 V(1,1) T= 1623.7 Ns= 4673 | steps  3 its [44, 54, 53] | ‖r‖ 6.6e-12 | actions   510 (J   459 + build   51) |    64.2 s | Krylov    65.8 MB, coarse    65.2 MB (19857 unknowns)
+q=64 r=16 tc=4 V(2,2) T= 1623.7 Ns= 4673 | steps  3 its [3, 6, 5] | ‖r‖ 9.5e-12 | actions   133 (J    82 + build   51) |    31.5 s | Krylov     8.4 MB, coarse    65.2 MB (19857 unknowns)
+q=64 r=20 tc=4 V(1,1) T= 1623.7 Ns= 4673 | steps  3 its [44, 54, 53] | ‖r‖ 6.1e-12 | actions   522 (J   459 + build   63) |    72.0 s | Krylov    65.8 MB, coarse    99.3 MB (24529 unknowns)
+q=64 r=12 tc=4 V(3,3) T= 1623.7 Ns= 4673 | steps 15 its [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 5.2e-04 | actions  6585 (J  6390 + build  195) |   578.6 s | Krylov    73.0 MB, coarse    38.2 MB (15185 unknowns)
+
+[exited with code 0]

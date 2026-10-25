@@ -1,4 +1,5 @@
 [deps]
+BorderedMatrices = "4f1fcb3f-c446-4861-abdc-d00ee1679649"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -6,4 +7,5 @@ ReSolver = "afc05414-6b91-45ed-b53b-62f5bbb6031d"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
+BorderedMatrices = {url = "https://github.com/gasagna/BorderedMatrices.jl", rev = "master"}
 ReSolver = {path = ".."}

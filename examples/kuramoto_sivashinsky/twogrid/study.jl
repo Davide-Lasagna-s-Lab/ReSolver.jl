@@ -1,0 +1,82 @@
+# The two-grid study on Kuramoto–Sivashinsky: one line per Newton search in results/<part>.txt.
+#
+#     julia --project=. study.jl T        cost against the period, B only and two-grid
+#                                         (Ttwogrid or Tplain for one of the two)
+#     julia --project=. study.jl r        truncation level in space (r) and in time (tc)
+#     julia --project=. study.jl cycle    cycles and time derivative of the coarse operator
+#
+# Columns: case q T Ns method r tc pre post h steps actions jacobian builds seconds krylov_MB
+# coarse_MB coarse_unknowns final_residual GMRES_iterations_per_step(comma separated)
+include("common.jl")
+
+const OUT = joinpath(HERE, "results")
+mkpath(OUT)
+
+function record(io, case, q, method, o; r=0, tc=0, pre=0, post=0, h=0)
+    @printf(io, "%s %d %.4f %d %s %d %d %d %d %d %d %d %d %d %.2f %.2f %.2f %d %.3e %s\n",
+            case, q, o.T, o.Ns, method, r, tc, pre, post, h, o.steps, o.actions, o.jac, o.builds,
+            o.time, o.krylov_MB, o.coarse_MB, o.nodes, o.res, join(o.its, ","))
+    flush(io)
+    println(rpad("$case q=$q $method r=$r tc=$tc V($pre,$post) h=$h", 48), fmt(o))
+    flush(stdout)
+end
+
+# the test cases: prime orbits from their starting points, and orbits traversed q times from a
+# perturbed start
+cases(which) = which === :prime    ? [("prime", M, () -> prime_case(M)) for M in (1, 2, 4, 8)] :
+               which === :repeat1  ? [("repeat1", q, () -> repeated_start(1, q)) for q in (1, 2, 4, 8, 16, 32, 64)] :
+                                     [("repeat8", q, () -> repeated_start(8, q)) for q in (2, 4, 8)]
+
+part = isempty(ARGS) ? "T" : ARGS[1]
+
+if part in ("T", "Ttwogrid")
+    # ---- two-grid: every case ----
+    open(joinpath(OUT, "T_scan.txt"), "a") do io
+        for which in (:prime, :repeat1, :repeat8), (case, q, make) in cases(which)
+            x, g = make()
+            for (r, tc, pre, post) in ((12, 1, 1, 1), (16, 1, 1, 1), (16, 2, 2, 2), (16, 4, 2, 2))
+                o = run_newton(x, g; r, tc, pre, post)
+                record(io, case, q, "twogrid", o; r, tc, pre, post, h=4)
+            end
+        end
+    end
+end
+if part in ("T", "Tplain")
+    # ---- B only: full Newton up to T ≈ 450, one Newton step beyond ----
+    open(joinpath(OUT, "T_scan.txt"), "a") do io
+        for which in (:prime, :repeat1, :repeat8), (case, q, make) in cases(which)
+            x, g = make()
+            T = 2π / frequency(x)
+            o = run_newton(x, g; kind=:plain, maxiter=T < 450 ? 15 : 1)
+            record(io, case, q, T < 450 ? "plain" : "plain1", o)
+        end
+    end
+end
+if part == "r"
+    open(joinpath(OUT, "r_scan.txt"), "a") do io
+        for (case, q, make) in (("repeat1", 1, () -> repeated_start(1, 1)),
+                                ("repeat1", 8, () -> repeated_start(1, 8)),
+                                ("repeat1", 64, () -> repeated_start(1, 64)))
+            x, g = make()
+            for ν in (1, 2), tc in (1, 2, 4, 8), r in (4, 8, 12, 14, 16, 20, 24)
+                o = run_newton(x, g; r, tc, pre=ν, post=ν, maxiter=8)
+                record(io, case, q, "twogrid", o; r, tc, pre=ν, post=ν, h=4)
+            end
+        end
+    end
+elseif part == "cycle"
+    open(joinpath(OUT, "cycle_scan.txt"), "a") do io
+        x, g = repeated_start(1, 8)
+        r = 16
+        for (cycle, tc, pre, post, h) in ((:additive, 1, 0, 0, 4), (:multiplicative, 1, 1, 0, 4),
+                                          (:multiplicative, 1, 0, 1, 4), (:multiplicative, 1, 1, 1, 4),
+                                          (:multiplicative, 1, 2, 2, 4), (:multiplicative, 1, 1, 1, 1),
+                                          (:multiplicative, 1, 1, 1, 2), (:multiplicative, 1, 1, 1, 8),
+                                          (:multiplicative, 1, 1, 0, 1), (:multiplicative, 1, 1, 0, 8),
+                                          (:multiplicative, 2, 1, 0, 4), (:multiplicative, 2, 1, 1, 4),
+                                          (:multiplicative, 2, 2, 2, 4))
+            o = run_newton(x, g; r, tc, cycle, pre, post, h, maxiter=12)
+            record(io, "repeat1", 8, string(cycle), o; r, tc, pre, post, h)
+        end
+    end
+end

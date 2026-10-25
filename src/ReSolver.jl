@@ -18,17 +18,19 @@ module ReSolver
 # wherever the fields live, on a CPU or a GPU.
 #
 # L-BFGS and the Arnoldi iteration (from GMRES.jl) are local implementations,
-# free to be adapted.
+# free to be adapted. TwoGrid is a two-grid preconditioner for the hookstep, built on a
+# preconditioner given by the user (twogrid.jl).
 
 using LinearAlgebra
 using Printf
 
-export Orbit, System, LBFGS, NewtonHookstep, Trace, solve!
+export Orbit, System, LBFGS, NewtonHookstep, TwoGrid, Trace, solve!
 
 include("orbit.jl")
 include("finitedifference.jl")
 include("system.jl")
 include("precondition.jl")
+include("twogrid.jl")
 include("trace.jl")
 include("lbfgs/linesearch.jl")
 include("lbfgs/lbfgs.jl")

@@ -2,6 +2,7 @@ using Test
 using LinearAlgebra
 using Random
 using ReSolver
+using BorderedMatrices
 
 import ReSolver: objective, gradient!, jacobian!, jacobian_adjoint!, residual!
 
@@ -328,6 +329,65 @@ end
         @test objective(FB, y) < R₀
         @test abs(sum(y.a.data)) / norm(y.a) < 1e-10
     end
+end
+
+
+@testset "Two-grid preconditioner                                  " begin
+    coords, field! = fourier_coordinates(g)
+    u, v = demean!(random_field()), demean!(random_field())
+
+    # ---- the coordinates are an isometry, and field! their inverse ----
+    @test dot(coords(u), coords(v)) ≈ dot(u, v)
+    @test field!(similar(u), coords(u)).data ≈ u.data
+
+    for (tc, neutral, solver) in ((1, false, :sparse), (1, true, :sparse), (2, false, :sparse),
+                                  (2, true, :sparse), (2, true, :banded))
+        B  = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc, neutral, solver)
+        Fd = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B, project=demean!)
+        Fd.linearise!(Fd.lin, x.a)
+        ReSolver.relinearise!(B, Fd, x)
+        rc, Nb = ReSolver.ncoarse(B), ReSolver.nblocks(B)
+
+        # ---- the restriction is the adjoint of the prolongation ----
+        y = randn(B.nodes)
+        z = random_orbit(0.4, 0.2)
+        @test dot(ReSolver.prolong!(similar(x), B, y), z) ≈ dot(y, ReSolver.restrict(B, z))
+
+        # ---- on coarse fields constant in time, whose time derivative the coarse matrix has
+        #      exactly, it is the Galerkin projection of the Jacobian: K⁻¹ R 𝒥 P y = y ----
+        Y = repeat(randn(rc), 1, Nb)
+        tc == 1 && neutral && (Y[7:end, :] .= 0)    # the neutral profiles vary in time
+        y = vcat(vec(Y), randn(2))
+        Jy = jacobian!(similar(x), Fd, x, ReSolver.prolong!(similar(x), B, y))
+        @test ReSolver.coarse_solve(B.K, ReSolver.restrict(B, Jy)) ≈ y
+    end
+
+    # ---- the two solvers of the coarse matrix agree ----
+    Bs, Bb = (TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc=1, solver) for solver in (:sparse, :banded))
+    Fs = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B=Bs, project=demean!)
+    Fb = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B=Bb, project=demean!)
+    Fs.linearise!(Fs.lin, x.a)
+    ReSolver.relinearise!(Bs, Fs, x); ReSolver.relinearise!(Bb, Fb, x)
+    p, ps, pb = random_orbit(0.4, 0.2), similar(x), similar(x)
+    ReSolver.precondition!(ps, Bs, Fs, p); ReSolver.precondition!(pb, Bb, Fb, p)
+    @test norm(ps .- pb) / norm(ps) < 1e-10
+
+    # ---- a search with the two-grid preconditioner, in every cycle, reduces the residual and
+    #      stays on the zero-mean fields ----
+    for (cycle, tc) in ((:multiplicative, 1), (:multiplicative, 2), (:additive, 1))
+        B  = TwoGrid(KSPreconditioner(x; kind=:jacobian), coords, field!, 6; tc, cycle)
+        Fd = System(nl, lin, dds!, x; linearise!, ddi=(ddx!,), B, project=demean!)
+        y  = copy(x)
+        R₀ = objective(Fd, y)
+        solve!(y, Fd, NewtonHookstep(maxiter=3, krylov_dim=30, verbose=false))
+
+        @test objective(Fd, y) < R₀
+        @test abs(sum(y.a.data)) / norm(y.a) < 1e-10
+        @test B.builds > 0
+    end
+
+    # ---- it has no adjoint, so L-BFGS refuses it ----
+    @test_throws ArgumentError ReSolver.precondition_adjoint!(similar(x), TwoGrid(I, coords, field!, 2), x)
 end
 
 

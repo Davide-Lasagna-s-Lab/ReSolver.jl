@@ -22,6 +22,8 @@
 #     KSPreconditioner                 diagonal Fourier preconditioner
 #     demean!(u)                       projection on the fields of zero mean
 #     odd!(u)                          projection on the odd fields, u(-x) = -u(x)
+#     odd_sine_coordinates(g)          sine coordinates of odd fields, for TwoGrid
+#     fourier_coordinates(g)           Fourier coordinates of any field, for TwoGrid
 #     resample(u, g)                   spectral interpolation to another grid
 #     integrate, recurrence            time integration (ETDRK4) and near-recurrences
 
@@ -366,6 +368,43 @@ function odd!(u::KSField)
     return u
 end
 
+
+# ============================================================================ #
+# Coordinates for the two-grid preconditioner                                  #
+# ============================================================================ #
+# Sine coordinates of the odd fields, for TwoGrid: c[k, l] is the coefficient of sin(2πk x/L) at the
+# time slice l, k = 1, …, (Nx - 1)/2, scaled so that dot(u, v) = c(u) ⋅ c(v) for odd fields. They are
+# ordered by wavenumber, from large to small scales, so that keeping the first r rows is spectral
+# truncation. On the grid, Σⱼ sin(k xⱼ) sin(k′ xⱼ) = Nx/2 δ(k, k′), hence the scalings. Returns the
+# pair coords, field!: coords(c, u) or coords(u), and field!(u, c).
+function odd_sine_coordinates(g::KSGrid)
+    S   = [sin(2π * k * x / g.L) for k in 1:(g.Nx - 1) ÷ 2, x in xpoints(g)]
+    fwd = S .* (sqrt(2) / (g.Nx * sqrt(g.Ns)))
+    inv = Matrix(transpose(S)) .* sqrt(2 * g.Ns)
+    coords(c::AbstractMatrix, u::KSField) = mul!(c, fwd, u.data)
+    coords(u::KSField)                    = fwd * u.data
+    field!(u::KSField, c::AbstractMatrix) = (mul!(u.data, inv, c); u)
+    return coords, field!
+end
+
+# Fourier coordinates of any field, for TwoGrid: cos(2πk x/L) and sin(2πk x/L) for k = 1, …,
+# (Nx - 1)/2, from large to small scales, then the mean, last so that it never enters the coarse
+# space (the search removes it with demean!). Orthonormal in the inner product of the fields.
+function fourier_coordinates(g::KSGrid)
+    x   = xpoints(g)
+    K   = (g.Nx - 1) ÷ 2
+    S   = zeros(g.Nx, g.Nx)                          # grid values of the basis, one per column
+    for k in 1:K
+        S[:, 2k - 1] .= cos.(2π * k .* x ./ g.L) .* sqrt(2 * g.Ns)
+        S[:, 2k]     .= sin.(2π * k .* x ./ g.L) .* sqrt(2 * g.Ns)
+    end
+    S[:, end] .= sqrt(g.Ns)
+    fwd = Matrix(transpose(S)) ./ (g.Nx * g.Ns)      # the inverse of S, since Sᵀ S = Nx Ns I
+    coords(c::AbstractMatrix, u::KSField) = mul!(c, fwd, u.data)
+    coords(u::KSField)                    = fwd * u.data
+    field!(u::KSField, c::AbstractMatrix) = (mul!(u.data, S, c); u)
+    return coords, field!
+end
 
 # ============================================================================ #
 # Resolution                                                                   #

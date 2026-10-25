@@ -10,6 +10,9 @@
 #     precondition_adjoint!(out, B, p)    out = B⁻⁺ p, with B⁻⁺ the adjoint of B⁻¹
 #     relinearise!(B, x)                  B rebuilt about the orbit x, optional
 #
+# or, for a preconditioner that applies the Jacobian, precondition!(out, B, F, p) and
+# relinearise!(B, F, x), with the System F (twogrid.jl).
+#
 # A multiple of the identity, `I` by default, leaves both methods as without preconditioning. The
 # hookstep calls relinearise! at the start of every Newton iteration, with the current orbit; L-BFGS
 # never does, since its metric must stay fixed for the curvature pairs to make sense.
@@ -40,11 +43,16 @@ preconditioner that does not depend on the orbit, or the identity, needs no meth
 """
 relinearise!(B, x::Orbit) = B
 
+# Preconditioners that apply the Jacobian, such as TwoGrid, need the System as well: the search
+# calls these two methods, which fall back on those above for every other preconditioner.
+precondition!(out::Orbit, B, F, p::Orbit) = precondition!(out, B, p)
+relinearise!(B, F, x::Orbit)              = relinearise!(B, x)
+
 # applications of B⁻¹ and B⁻⁺ through a System, counted, and projected back onto the invariant
 # subspace of the System, which a preconditioner that does not commute with the symmetry would leave
 function _precondition!(out::Orbit, F, p::Orbit)
     F.evaluations.precondition += 1
-    precondition!(out, F.B, p)
+    precondition!(out, F.B, F, p)
     F.project(out.a)
 
     return out

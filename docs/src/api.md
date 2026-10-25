@@ -28,6 +28,8 @@ Trace
 ReSolver.precondition!
 ReSolver.precondition_adjoint!
 ReSolver.relinearise!
+TwoGrid
+ReSolver.coarse_bytes
 ```
 
 ## Residual, gradient and Jacobian

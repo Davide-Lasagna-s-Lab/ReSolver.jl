@@ -1,0 +1,3 @@
+tc=1 V(1,1): build 2.57 s | per call: J 67.2 ms, B⁻¹ 17.8 ms, restrict 6.5 ms, prolong 6.2 ms, coarse solve 53.5 ms, whole cycle 265.3 ms
+tc=2 V(2,2): build 1.73 s | per call: J 69.6 ms, B⁻¹ 14.8 ms, restrict 5.2 ms, prolong 7.0 ms, coarse solve 34.8 ms, whole cycle 453.8 ms
+tc=4 V(2,2): build 1.27 s | per call: J 68.6 ms, B⁻¹ 29.3 ms, restrict 6.7 ms, prolong 6.6 ms, coarse solve 8.0 ms, whole cycle 485.9 ms

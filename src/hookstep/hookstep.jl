@@ -143,7 +143,7 @@ function solve!(     x::Orbit,
         # the Jacobian acts about x: set the linearisation point of the operators, and of the
         # preconditioner if it follows the orbit
         F.linearise!(F.lin, x.a)
-        relinearise && relinearise!(F.B, x)
+        relinearise && relinearise!(F.B, F, x)
 
         residual!(b, F, x)
         b .*= -1
