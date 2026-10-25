@@ -56,8 +56,9 @@ if part in ("T", "Ttwogrid")
     end
 end
 if part in ("T", "Tplain")
-    # ---- B only: full Newton up to T ≈ 450, one Newton step beyond; the cases "case:q" given
-    #      after Tplain, or all ----
+    # ---- B only: full Newton up to T ≈ 450, one Newton step up to T ≈ 800, nothing beyond (one
+    #      Newton step at T ≈ 1500 runs for more than an hour); the cases "case:q" given after
+    #      Tplain, or all ----
     only = ARGS[2:end]
     part == "Tplain" && warmup()
     open(joinpath(OUT, "T_scan.txt"), "a") do io
@@ -65,6 +66,7 @@ if part in ("T", "Tplain")
             isempty(only) || "$case:$q" in only || continue
             x, g = make()
             T = 2π / frequency(x)
+            T > 900 && continue
             o = run_newton(x, g; kind=:plain, maxiter=T < 450 ? 15 : 1)
             record(io, case, q, T < 450 ? "plain" : "plain1", o)
         end

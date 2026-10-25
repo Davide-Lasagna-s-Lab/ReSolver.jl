@@ -3,7 +3,7 @@
 The scripts behind the report *A two-grid preconditioner for space-time Newton–Krylov searches of
 periodic orbits*. They compare Newton–hookstep searches with ReSolver's diagonal preconditioner
 alone and with `TwoGrid` (`src/twogrid.jl`), on Kuramoto–Sivashinsky with L = 39 in the odd
-subspace, for periods from 25 to 1600.
+subspace, for periods from 25 to 1600 (with the diagonal preconditioner alone, up to 800).
 
 | file | content |
 |---|---|
