@@ -66,18 +66,29 @@ function prime_case(M::Int)
     return Orbit(KSField(g, copy(A)), [ρ]), g
 end
 
+# coordinates of odd fields in the orthonormal basis whose sine coordinates are the columns of G,
+# ordered from the most to the least important (for TwoGrid; G = I gives the sine modes)
+function basis_coordinates(g::KSGrid, G::Matrix{Float64})
+    sc, sf! = odd_sine_coordinates(g)
+    coords(c::AbstractMatrix, u::KSField) = mul!(c, transpose(G), sc(u))
+    coords(u::KSField)                    = transpose(G) * sc(u)
+    field!(u::KSField, c::AbstractMatrix) = sf!(u, G * c)
+    return coords, field!
+end
+
 # ---- Newton–hookstep with a given preconditioner, returning its costs ----
-# kind = :plain (B only) or :twogrid; keywords of TwoGrid passed through
+# kind = :plain (B only) or :twogrid; keywords of TwoGrid passed through; coordinates: the spatial
+# basis of the coarse space (sine modes by default)
 function run_newton(x::Orbit, g::KSGrid; kind=:twogrid, r=12, tc=1, neutral=true, cycle=:multiplicative,
                     pre=1, post=1, h=4, solver=:banded, krylov_dim=nothing, maxiter=15, tol=1e-10,
-                    krylov_tol=1e-3, verbose=false)
+                    krylov_tol=1e-3, verbose=false, coordinates=odd_sine_coordinates(g))
     x   = copy(x)
     ops = (KSNonlinear(g), KSLinearised(g))
     B0  = KSPreconditioner(x; kind=:jacobian)
     if kind === :plain
         B = B0
     else
-        coords, field! = odd_sine_coordinates(g)
+        coords, field! = coordinates
         B = TwoGrid(B0, coords, field!, r; tc, h, neutral, cycle, pre, post, solver)
     end
     F   = System(ops..., dds!, x; linearise!, B, project=odd!)
@@ -100,3 +111,14 @@ end
 
 fmt(o) = @sprintf("T=%7.1f Ns=%5d | steps %2d its %s | ‖r‖ %.1e | actions %5d (J %5d + build %4d) | %7.1f s | Krylov %7.1f MB, coarse %7.1f MB (%d unknowns)",
                   o.T, o.Ns, o.steps, string(o.its), o.res, o.actions, o.jac, o.builds, o.time, o.krylov_MB, o.coarse_MB, o.nodes)
+
+# one line per search: case q T Ns method r tc pre post h steps actions jacobian builds seconds
+# krylov_MB coarse_MB coarse_unknowns final_residual GMRES_iterations_per_step
+function record(io, case, q, method, o; r=0, tc=0, pre=0, post=0, h=0)
+    @printf(io, "%s %d %.4f %d %s %d %d %d %d %d %d %d %d %d %.2f %.2f %.2f %d %.3e %s\n",
+            case, q, o.T, o.Ns, method, r, tc, pre, post, h, o.steps, o.actions, o.jac, o.builds,
+            o.time, o.krylov_MB, o.coarse_MB, o.nodes, o.res, join(o.its, ","))
+    flush(io)
+    println(rpad("$case q=$q $method r=$r tc=$tc V($pre,$post) h=$h", 48), fmt(o))
+    flush(stdout)
+end

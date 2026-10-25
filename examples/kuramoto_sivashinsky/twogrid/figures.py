@@ -35,7 +35,7 @@ def load(name):
         rows.append(d)
     return rows
 
-which = sys.argv[2:] or ["map", "T", "r", "cycle"]
+which = sys.argv[2:] or ["map", "T", "r", "cycle", "basis"]
 
 # ---------------------------------------------------------------- smoothing map
 if "map" in which:
@@ -182,3 +182,28 @@ if "cycle" in which:
         ax[1].set_xlabel("Jacobian actions per search")
         ax[0].set_yticks(y); ax[0].set_yticklabels(labs, fontsize=7.5)
         save(fig, "tg_cycles")
+
+# ---------------------------------------------------------------- spatial basis of the coarse space
+if "basis" in which:
+    R = load("svdbasis.txt")
+    if R:
+        cases = [("repeat1", 8), ("prime", 8), ("repeat8", 8), ("repeat1", 64)]
+        names = [("sine", "sine modes", GREY, "o"), ("svd1", "SVD of the slow directions, $T = 25$", GREEN, "s"),
+                 ("svd8", "SVD of the slow directions, $T = 188$", ORANGE, "D"),
+                 ("smoother", "SVD of smoothed test vectors", PURPLE, "^")]
+        fig, ax = plt.subplots(1, 4, figsize=(8.2, 2.4), sharey=True, gridspec_kw=dict(wspace=0.1))
+        for a, (case, q) in zip(ax, cases):
+            for m, lab, c, mk in names:
+                dd = sorted([d for d in R if d["case"] == case and d["q"] == q and d["method"] == m], key=lambda d: d["r"])
+                if not dd: continue
+                a.plot([d["r"] for d in dd], [np.mean(d["its"]) if d["conv"] else np.nan for d in dd], "-" + mk,
+                       color=c, ms=3, lw=1.1, mfc="none", label=lab)
+                bad = [d for d in dd if not d["conv"]]
+                a.plot([d["r"] for d in bad], [70] * len(bad), "x", color=c, ms=4)
+            T = dd[0]["T"] if dd else 0
+            a.set_title(f"$T = {T:.0f}$" + (" (prime)" if case == "prime" else ""), fontsize=8.5)
+            a.set_yscale("log"); a.set_ylim(1, 90); a.set_xlabel("modes per slice $r$")
+        ax[0].set_ylabel("GMRES iterations\nper Newton step")
+        h, l = ax[0].get_legend_handles_labels()
+        fig.legend(h, l, frameon=False, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.04), ncol=4)
+        save(fig, "tg_basis")

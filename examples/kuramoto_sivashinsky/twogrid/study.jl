@@ -13,15 +13,6 @@ include("common.jl")
 const OUT = joinpath(HERE, "results")
 mkpath(OUT)
 
-function record(io, case, q, method, o; r=0, tc=0, pre=0, post=0, h=0)
-    @printf(io, "%s %d %.4f %d %s %d %d %d %d %d %d %d %d %d %.2f %.2f %.2f %d %.3e %s\n",
-            case, q, o.T, o.Ns, method, r, tc, pre, post, h, o.steps, o.actions, o.jac, o.builds,
-            o.time, o.krylov_MB, o.coarse_MB, o.nodes, o.res, join(o.its, ","))
-    flush(io)
-    println(rpad("$case q=$q $method r=$r tc=$tc V($pre,$post) h=$h", 48), fmt(o))
-    flush(stdout)
-end
-
 # the test cases: prime orbits from their starting points, and orbits traversed q times from a
 # perturbed start
 cases(which) = which === :prime    ? [("prime", M, () -> prime_case(M)) for M in (1, 2, 4, 8)] :

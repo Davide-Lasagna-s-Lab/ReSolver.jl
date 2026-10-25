@@ -11,7 +11,7 @@ subspace, for periods from 25 to 1600 (with the diagonal preconditioner alone, u
 | `smoothing_map.jl` | amplification of one smoothing step on every space-time Fourier mode |
 | `study.jl` | the scans: `T` (cost against the period; `Ttwogrid`, `Tplain` for one part), `r` (truncation level in space and time), `cycle` (cycles and time derivative of the coarse operator) |
 | `figures.py` | the figures, from `results/*.txt` |
-| `explore/` | exploratory runs quoted in the report, with logs |
+| `explore/` | exploratory runs quoted in the report, with logs; the modes of the slow directions against sine modes: `slowdirs.jl` (slow directions and dense operators, into `explore/slowdirs/`, not tracked), `modes.py` (SVD modes, Floquet profiles, exact two-grid operator), `svdbasis.jl` (the coarse space with other spatial bases) |
 | `data/` | converged orbits and starting points from the earlier study |
 | `results/` | one line per search (columns in `study.jl`), and the logs |
 
@@ -22,6 +22,10 @@ julia --project=. study.jl T
 julia --project=. study.jl r
 julia --project=. study.jl cycle
 python3 figures.py
+cd explore
+julia --project=.. slowdirs.jl
+python3 modes.py
+julia --project=.. svdbasis.jl
 ```
 
 The environment uses ReSolver from this repository and BorderedMatrices.jl from GitHub, which

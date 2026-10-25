@@ -1,0 +1,107 @@
+repeat1 q=8 sine r=6 tc=2 V(2,2) h=4            T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 3.1e-04 | actions  2488 (J  2432 + build   56) |    10.8 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+repeat1 q=8 svd1 r=6 tc=2 V(2,2) h=4            T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 3.4e-03 | actions  2488 (J  2432 + build   56) |    10.3 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+repeat1 q=8 svd8 r=6 tc=2 V(2,2) h=4            T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 3.2e-03 | actions  2488 (J  2432 + build   56) |    10.2 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+repeat1 q=8 smoother r=6 tc=2 V(2,2) h=4        T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 1.9e-03 | actions  2488 (J  2432 + build   56) |     9.5 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+repeat1 q=8 sine r=8 tc=2 V(2,2) h=4            T=  203.0 Ns=  585 | steps  3 its [30, 30, 29] | ‖r‖ 6.3e-12 | actions   484 (J   457 + build   27) |     1.7 s | Krylov     4.6 MB, coarse     4.6 MB (2629 unknowns)
+repeat1 q=8 svd1 r=8 tc=2 V(2,2) h=4            T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 1.8e-03 | actions  2504 (J  2432 + build   72) |    10.5 s | Krylov     9.1 MB, coarse     4.6 MB (2629 unknowns)
+repeat1 q=8 svd8 r=8 tc=2 V(2,2) h=4            T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.8e-03 | actions  2504 (J  2432 + build   72) |     9.9 s | Krylov     9.1 MB, coarse     4.6 MB (2629 unknowns)
+repeat1 q=8 smoother r=8 tc=2 V(2,2) h=4        T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 5.0e-06 | actions  2504 (J  2432 + build   72) |    10.3 s | Krylov     9.1 MB, coarse     4.6 MB (2629 unknowns)
+repeat1 q=8 sine r=10 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [8, 9, 8] | ‖r‖ 1.9e-12 | actions   170 (J   137 + build   33) |     0.6 s | Krylov     1.5 MB, coarse     6.8 MB (3213 unknowns)
+repeat1 q=8 svd1 r=10 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.7e-05 | actions  2520 (J  2432 + build   88) |    10.5 s | Krylov     9.1 MB, coarse     6.8 MB (3213 unknowns)
+repeat1 q=8 svd8 r=10 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 4.2e-06 | actions  2520 (J  2432 + build   88) |    10.7 s | Krylov     9.1 MB, coarse     6.8 MB (3213 unknowns)
+repeat1 q=8 smoother r=10 tc=2 V(2,2) h=4       T=  203.0 Ns=  585 | steps  3 its [19, 20, 19] | ‖r‖ 4.5e-12 | actions   335 (J   302 + build   33) |     1.3 s | Krylov     3.1 MB, coarse     6.8 MB (3213 unknowns)
+repeat1 q=8 sine r=12 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [3, 4, 3] | ‖r‖ 2.6e-12 | actions   101 (J    62 + build   39) |     0.4 s | Krylov     0.7 MB, coarse     9.5 MB (3797 unknowns)
+repeat1 q=8 svd1 r=12 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [48, 48, 48] | ‖r‖ 3.8e-12 | actions   771 (J   732 + build   39) |     3.2 s | Krylov     7.3 MB, coarse     9.5 MB (3797 unknowns)
+repeat1 q=8 svd8 r=12 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [46, 46, 46] | ‖r‖ 3.4e-12 | actions   741 (J   702 + build   39) |     2.9 s | Krylov     7.0 MB, coarse     9.5 MB (3797 unknowns)
+repeat1 q=8 smoother r=12 tc=2 V(2,2) h=4       T=  203.0 Ns=  585 | steps  3 its [4, 4, 4] | ‖r‖ 1.9e-12 | actions   111 (J    72 + build   39) |     0.4 s | Krylov     0.7 MB, coarse     9.5 MB (3797 unknowns)
+repeat1 q=8 sine r=14 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [2, 2, 2] | ‖r‖ 4.6e-12 | actions    87 (J    42 + build   45) |     0.4 s | Krylov     0.4 MB, coarse    12.6 MB (4381 unknowns)
+repeat1 q=8 svd1 r=14 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [34, 33, 33] | ‖r‖ 4.8e-12 | actions   557 (J   512 + build   45) |     2.1 s | Krylov     5.2 MB, coarse    12.6 MB (4381 unknowns)
+repeat1 q=8 svd8 r=14 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [34, 34, 34] | ‖r‖ 4.9e-12 | actions   567 (J   522 + build   45) |     2.1 s | Krylov     5.2 MB, coarse    12.6 MB (4381 unknowns)
+repeat1 q=8 smoother r=14 tc=2 V(2,2) h=4       T=  203.0 Ns=  585 | steps  3 its [2, 2, 3] | ‖r‖ 1.8e-13 | actions    92 (J    47 + build   45) |     0.4 s | Krylov     0.6 MB, coarse    12.6 MB (4381 unknowns)
+repeat1 q=8 sine r=16 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [2, 2, 2] | ‖r‖ 2.3e-12 | actions    93 (J    42 + build   51) |     0.5 s | Krylov     0.4 MB, coarse    16.2 MB (4965 unknowns)
+repeat1 q=8 svd1 r=16 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [20, 20, 20] | ‖r‖ 3.8e-12 | actions   363 (J   312 + build   51) |     1.5 s | Krylov     3.1 MB, coarse    16.2 MB (4965 unknowns)
+repeat1 q=8 svd8 r=16 tc=2 V(2,2) h=4           T=  203.0 Ns=  585 | steps  3 its [18, 19, 19] | ‖r‖ 2.0e-12 | actions   343 (J   292 + build   51) |     1.3 s | Krylov     3.0 MB, coarse    16.2 MB (4965 unknowns)
+repeat1 q=8 smoother r=16 tc=2 V(2,2) h=4       T=  203.0 Ns=  585 | steps  3 its [2, 2, 2] | ‖r‖ 1.4e-12 | actions    93 (J    42 + build   51) |     0.4 s | Krylov     0.4 MB, coarse    16.2 MB (4965 unknowns)
+prime q=8 sine r=6 tc=2 V(2,2) h=4              T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.2e-04 | actions  2488 (J  2432 + build   56) |    18.8 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+prime q=8 svd1 r=6 tc=2 V(2,2) h=4              T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.4e-04 | actions  2488 (J  2432 + build   56) |    19.7 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+prime q=8 svd8 r=6 tc=2 V(2,2) h=4              T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.4e-04 | actions  2488 (J  2432 + build   56) |    19.3 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+prime q=8 smoother r=6 tc=2 V(2,2) h=4          T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.4e-04 | actions  2488 (J  2432 + build   56) |    19.1 s | Krylov     9.1 MB, coarse     2.8 MB (2045 unknowns)
+prime q=8 sine r=8 tc=2 V(2,2) h=4              T=  187.7 Ns=  583 | steps  6 its [41, 40, 40, 38, 36, 36] | ‖r‖ 8.7e-12 | actions  1249 (J  1195 + build   54) |     9.2 s | Krylov     6.3 MB, coarse     4.6 MB (2629 unknowns)
+prime q=8 svd1 r=8 tc=2 V(2,2) h=4              T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.4e-04 | actions  2504 (J  2432 + build   72) |    19.4 s | Krylov     9.1 MB, coarse     4.6 MB (2629 unknowns)
+prime q=8 svd8 r=8 tc=2 V(2,2) h=4              T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.4e-04 | actions  2504 (J  2432 + build   72) |    19.9 s | Krylov     9.1 MB, coarse     4.6 MB (2629 unknowns)
+prime q=8 smoother r=8 tc=2 V(2,2) h=4          T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.4e-04 | actions  2504 (J  2432 + build   72) |    19.2 s | Krylov     9.1 MB, coarse     4.6 MB (2629 unknowns)
+prime q=8 sine r=10 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  6 its [12, 12, 12, 11, 10, 10] | ‖r‖ 1.2e-12 | actions   441 (J   375 + build   66) |     3.1 s | Krylov     1.9 MB, coarse     6.8 MB (3213 unknowns)
+prime q=8 svd1 r=10 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.3e-04 | actions  2520 (J  2432 + build   88) |    18.8 s | Krylov     9.1 MB, coarse     6.8 MB (3213 unknowns)
+prime q=8 svd8 r=10 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 2.3e-04 | actions  2520 (J  2432 + build   88) |    19.5 s | Krylov     9.1 MB, coarse     6.8 MB (3213 unknowns)
+prime q=8 smoother r=10 tc=2 V(2,2) h=4         T=  187.7 Ns=  583 | steps  6 its [30, 30, 30, 28, 25, 25] | ‖r‖ 3.0e-11 | actions   946 (J   880 + build   66) |     7.0 s | Krylov     4.6 MB, coarse     6.8 MB (3213 unknowns)
+prime q=8 sine r=12 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  5 its [5, 4, 4, 4, 4] | ‖r‖ 3.6e-13 | actions   206 (J   141 + build   65) |     1.4 s | Krylov     0.9 MB, coarse     9.5 MB (3797 unknowns)
+prime q=8 svd1 r=12 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  7 its [53, 53, 53, 53, 51, 51, 50] | ‖r‖ 2.8e-12 | actions  1955 (J  1864 + build   91) |    14.1 s | Krylov     8.1 MB, coarse     9.5 MB (3797 unknowns)
+prime q=8 svd8 r=12 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  5 its [57, 57, 56, 55, 54] | ‖r‖ 1.2e-11 | actions  1480 (J  1415 + build   65) |    11.7 s | Krylov     8.7 MB, coarse     9.5 MB (3797 unknowns)
+prime q=8 smoother r=12 tc=2 V(2,2) h=4         T=  187.7 Ns=  583 | steps  6 its [7, 7, 7, 7, 5, 6] | ‖r‖ 2.5e-12 | actions   317 (J   239 + build   78) |     2.1 s | Krylov     1.2 MB, coarse     9.5 MB (3797 unknowns)
+prime q=8 sine r=14 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  7 its [3, 3, 3, 3, 3, 2, 2] | ‖r‖ 1.9e-13 | actions   252 (J   147 + build  105) |     1.8 s | Krylov     0.6 MB, coarse    12.6 MB (4381 unknowns)
+prime q=8 svd1 r=14 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  5 its [37, 36, 35, 35, 34] | ‖r‖ 2.6e-12 | actions   992 (J   917 + build   75) |     7.8 s | Krylov     5.7 MB, coarse    12.6 MB (4381 unknowns)
+prime q=8 svd8 r=14 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  5 its [38, 37, 36, 35, 35] | ‖r‖ 1.7e-11 | actions  1012 (J   937 + build   75) |     7.8 s | Krylov     5.8 MB, coarse    12.6 MB (4381 unknowns)
+prime q=8 smoother r=14 tc=2 V(2,2) h=4         T=  187.7 Ns=  583 | steps  6 its [3, 3, 3, 3, 2, 2] | ‖r‖ 6.8e-12 | actions   218 (J   128 + build   90) |     1.5 s | Krylov     0.6 MB, coarse    12.6 MB (4381 unknowns)
+prime q=8 sine r=16 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  6 its [2, 2, 2, 2, 2, 2] | ‖r‖ 4.5e-13 | actions   206 (J   104 + build  102) |     1.5 s | Krylov     0.4 MB, coarse    16.2 MB (4965 unknowns)
+prime q=8 svd1 r=16 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  8 its [21, 21, 20, 20, 20, 19, 19, 19] | ‖r‖ 9.1e-08 | actions   987 (J   851 + build  136) |     7.3 s | Krylov     3.3 MB, coarse    16.2 MB (4965 unknowns)
+prime q=8 svd8 r=16 tc=2 V(2,2) h=4             T=  187.7 Ns=  583 | steps  7 its [19, 19, 19, 18, 18, 18, 17] | ‖r‖ 3.9e-11 | actions   803 (J   684 + build  119) |     5.8 s | Krylov     3.0 MB, coarse    16.2 MB (4965 unknowns)
+prime q=8 smoother r=16 tc=2 V(2,2) h=4         T=  187.7 Ns=  583 | steps  6 its [2, 2, 2, 2, 2, 2] | ‖r‖ 3.1e-13 | actions   206 (J   104 + build  102) |     1.5 s | Krylov     0.4 MB, coarse    16.2 MB (4965 unknowns)
+repeat8 q=8 sine r=6 tc=2 V(2,2) h=4            T= 1500.3 Ns= 4665 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 4.1e-03 | actions  2488 (J  2432 + build   56) |   200.1 s | Krylov    72.8 MB, coarse    22.3 MB (16325 unknowns)
+repeat8 q=8 svd1 r=6 tc=2 V(2,2) h=4            T= 1500.3 Ns= 4665 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 4.2e-03 | actions  2488 (J  2432 + build   56) |   200.3 s | Krylov    72.8 MB, coarse    22.3 MB (16325 unknowns)
+repeat8 q=8 svd8 r=6 tc=2 V(2,2) h=4            T= 1500.3 Ns= 4665 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 4.2e-03 | actions  2488 (J  2432 + build   56) |   205.0 s | Krylov    72.8 MB, coarse    22.3 MB (16325 unknowns)
+repeat8 q=8 smoother r=6 tc=2 V(2,2) h=4        T= 1500.3 Ns= 4665 | steps  8 its [60, 60, 60, 60, 60, 60, 60, 60] | ‖r‖ 4.1e-03 | actions  2488 (J  2432 + build   56) |   224.4 s | Krylov    72.8 MB, coarse    22.3 MB (16325 unknowns)
+
+[374] signal 15: Terminated
+in expression starting at /home/claude/lab/resolver.jl/examples/kuramoto_sivashinsky/twogrid/explore/svdbasis.jl:47
+apply at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+apply at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+apply_dit at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+apply at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+apply at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+apply_dit at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+apply at /root/.julia/artifacts/fddee2a92d37e18a0b5265dce2aab7af84fd9242/lib/libfftw3.so (unknown line)
+unsafe_execute! at /root/.julia/packages/FFTW/uNgRy/src/fft.jl:530 [inlined]
+mul! at /root/.julia/packages/FFTW/uNgRy/src/fft.jl:924 [inlined]
+dds! at /home/claude/lab/resolver.jl/examples/kuramoto_sivashinsky/ks.jl:174
+jacobian! at /home/claude/lab/resolver.jl/src/system.jl:314
+unknown function (ip: 0x7f1661bfd231)
+_residual! at /home/claude/lab/resolver.jl/src/twogrid.jl:408
+unknown function (ip: 0x7f1651918a71)
+precondition! at /home/claude/lab/resolver.jl/src/twogrid.jl:395
+_precondition! at /home/claude/lab/resolver.jl/src/precondition.jl:55 [inlined]
+#40 at /home/claude/lab/resolver.jl/src/hookstep/hookstep.jl:171 [inlined]
+step! at /home/claude/lab/resolver.jl/src/hookstep/arnoldi.jl:33
+solve! at /home/claude/lab/resolver.jl/src/hookstep/hookstep.jl:181
+macro expansion at ./timing.jl:421 [inlined]
+#run_newton#23 at /home/claude/lab/resolver.jl/examples/kuramoto_sivashinsky/twogrid/common.jl:99
+run_newton at /home/claude/lab/resolver.jl/examples/kuramoto_sivashinsky/twogrid/common.jl:82
+unknown function (ip: 0x7f165191850d)
+#36 at /home/claude/lab/resolver.jl/examples/kuramoto_sivashinsky/twogrid/explore/svdbasis.jl:55
+#open#465 at ./io.jl:410
+open at ./io.jl:407
+jl_apply at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/julia.h:2157 [inlined]
+do_call at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/interpreter.c:126
+eval_value at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/interpreter.c:223
+eval_stmt_value at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/interpreter.c:174 [inlined]
+eval_body at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/interpreter.c:666
+jl_interpret_toplevel_thunk at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/interpreter.c:824
+jl_toplevel_eval_flex at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/toplevel.c:943
+jl_toplevel_eval_flex at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/toplevel.c:886
+ijl_toplevel_eval_in at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/toplevel.c:994
+eval at ./boot.jl:430 [inlined]
+include_string at ./loading.jl:2734
+_include at ./loading.jl:2794
+include at ./Base.jl:562
+jfptr_include_46986.1 at /home/claude/julia/julia-1.11.7/lib/julia/sys.so (unknown line)
+exec_options at ./client.jl:323
+_start at ./client.jl:531
+jfptr__start_73684.1 at /home/claude/julia/julia-1.11.7/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/julia.h:2157 [inlined]
+true_main at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/jlapi.c:900
+jl_repl_entrypoint at /cache/build/builder-demeter6-3/julialang/julia-release-1-dot-11/src/jlapi.c:1059
+main at julia (unknown line)
+unknown function (ip: 0x7f166942a1c9)
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+unknown function (ip: 0x4010b8)
+unknown function (ip: (nil))
+Allocations: 439493870 (Pool: 439492022; Big: 1848); GC: 935
