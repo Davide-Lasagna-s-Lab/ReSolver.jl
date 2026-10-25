@@ -1,1 +1,62 @@
 M = 1: T = 25.37, Ns = 73: 20 harmonic Ritz pairs nearest 0 (|θ| ≤ 0.59), 39 real directions
+M = 8: T = 187.54, Ns = 583: 160 harmonic Ritz pairs nearest 0 (|θ| ≤ 0.58), 316 real directions
+M = 1, fraction of the norm outside, median / max over the directions:
+   per slice                r=8: 0.072/0.114  r=12: 0.003/0.008  r=16: 0.000/0.000  r=20: 0.000/0.000
+   one basis                r=8: 0.216/0.330  r=12: 0.030/0.047  r=16: 0.003/0.006  r=20: 0.000/0.001
+   sines                    r=8: 0.370/0.446  r=12: 0.089/0.141  r=16: 0.016/0.028  r=20: 0.003/0.005
+   one basis, other orbit   r=8: 0.233/0.312  r=12: 0.032/0.054  r=16: 0.004/0.007  r=20: 0.000/0.001
+M = 8, fraction of the norm outside, median / max over the directions:
+   per slice                r=8: 0.065/0.130  r=12: 0.004/0.008  r=16: 0.000/0.001  r=20: 0.000/0.000
+   one basis                r=8: 0.201/0.284  r=12: 0.030/0.058  r=16: 0.003/0.009  r=20: 0.000/0.001
+   sines                    r=8: 0.348/0.481  r=12: 0.084/0.145  r=16: 0.016/0.032  r=20: 0.002/0.006
+   one basis, other orbit   r=8: 0.209/0.302  r=12: 0.034/0.065  r=16: 0.004/0.013  r=20: 0.000/0.003
+M = 1: per-slice modes 1..12, mean sine wavenumber 6.1 5.5 5.2 5.0 4.6 5.8 5.4 5.5 4.9 9.2 10.9 11.5
+        sine modes holding 99% of each:       12 12 12 12 13 13 13 15 14 16 17 18
+        global modes 1..12, mean sine wavenumber 5.8 6.2 5.1 4.7 5.7 5.0 5.0 2.3 8.5 9.4 10.6 12.1
+        global singular values / first: 5.7e-01 3.5e-01 8.6e-02 1.0e-02 1.1e-03 9.3e-05 (modes 4, 8, …, 24)
+        global modes for 99%, 99.9%, 99.99% of the energy: 10, 13, 15
+M = 8: per-slice modes 1..12, mean sine wavenumber 6.2 5.5 5.1 4.8 5.2 5.1 5.6 4.6 6.1 9.0 10.7 11.7
+        sine modes holding 99% of each:       12 12 12 12 12 13 14 14 14 15 16 18
+        global modes 1..12, mean sine wavenumber 6.0 6.3 4.2 6.3 4.3 5.0 6.2 2.8 7.4 9.7 10.2 12.2
+        global singular values / first: 5.6e-01 3.2e-01 9.1e-02 1.0e-02 1.2e-03 1.2e-04 (modes 4, 8, …, 24)
+        global modes for 99%, 99.9%, 99.99% of the energy: 10, 13, 15
+largest principal angle between the global 8-mode bases of M = 1 and M = 8: 17.3°
+largest principal angle between the global 12-mode bases of M = 1 and M = 8: 9.2°
+largest principal angle between the global 16-mode bases of M = 1 and M = 8: 19.0°
+slowest Floquet ladders at M = 1 (exponent μ = -Re λ; profile from the rung nearest the real axis):
+   μ = -0.000, 61 rungs; outside 8/12/16 sines 0.305/0.060/0.010, outside 8/12/16 per-slice modes 0.160/0.012/0.001
+   μ = +0.069 (antiperiodic), 64 rungs; outside 8/12/16 sines 0.298/0.070/0.012, outside 8/12/16 per-slice modes 0.084/0.008/0.001
+   μ = -0.199, 61 rungs; outside 8/12/16 sines 0.233/0.054/0.008, outside 8/12/16 per-slice modes 0.096/0.008/0.001
+   μ = -0.259 (antiperiodic), 60 rungs; outside 8/12/16 sines 0.252/0.057/0.010, outside 8/12/16 per-slice modes 0.125/0.011/0.001
+   μ = -0.360 (complex pair), 116 rungs; outside 8/12/16 sines 0.308/0.060/0.009, outside 8/12/16 per-slice modes 0.113/0.016/0.002
+   μ = -0.549, 61 rungs; outside 8/12/16 sines 0.271/0.071/0.012, outside 8/12/16 per-slice modes 0.150/0.017/0.002
+   μ = -0.683, 59 rungs; outside 8/12/16 sines 0.299/0.081/0.013, outside 8/12/16 per-slice modes 0.207/0.037/0.003
+spectrum of S at M = 1 (2337 eigenvalues): largest |λ| = 3.96; slow for GMRES: 23, amplified: 26, not damped: 79
+   slow for GMRES (45 real vectors), median fraction outside r = 8/12/16 modes: sines: 0.362/0.095/0.017; SVD of the slow directions: 0.218/0.031/0.004; smoothed test vectors: 0.317/0.074/0.010
+   amplified (46 real vectors), median fraction outside r = 8/12/16 modes: sines: 0.167/0.025/0.003; SVD of the slow directions: 0.210/0.053/0.006; smoothed test vectors: 0.162/0.028/0.002
+   not damped (149 real vectors), median fraction outside r = 8/12/16 modes: sines: 0.312/0.064/0.007; SVD of the slow directions: 0.296/0.057/0.008; smoothed test vectors: 0.307/0.071/0.009
+   two-grid V(2,2) at M = 1, sines, r = 6: spectral radius 122.74, eigenvalues with |λ| > 0.1: 48, > 0.5: 21
+   two-grid V(2,2) at M = 1, sines, r = 8: spectral radius 10.88, eigenvalues with |λ| > 0.1: 34, > 0.5: 12
+   two-grid V(2,2) at M = 1, sines, r = 10: spectral radius 3.89, eigenvalues with |λ| > 0.1: 17, > 0.5: 1
+   two-grid V(2,2) at M = 1, sines, r = 12: spectral radius 0.14, eigenvalues with |λ| > 0.1: 3, > 0.5: 0
+   two-grid V(2,2) at M = 1, sines, r = 14: spectral radius 0.03, eigenvalues with |λ| > 0.1: 0, > 0.5: 0
+   two-grid V(2,2) at M = 1, sines, r = 16: spectral radius 0.00, eigenvalues with |λ| > 0.1: 0, > 0.5: 0
+   two-grid V(2,2) at M = 1, SVD of the slow directions, r = 6: spectral radius 323.68, eigenvalues with |λ| > 0.1: 47, > 0.5: 24
+   two-grid V(2,2) at M = 1, SVD of the slow directions, r = 8: spectral radius 295.05, eigenvalues with |λ| > 0.1: 37, > 0.5: 19
+   two-grid V(2,2) at M = 1, SVD of the slow directions, r = 10: spectral radius 281.15, eigenvalues with |λ| > 0.1: 24, > 0.5: 13
+   two-grid V(2,2) at M = 1, SVD of the slow directions, r = 12: spectral radius 46.09, eigenvalues with |λ| > 0.1: 18, > 0.5: 9
+   two-grid V(2,2) at M = 1, SVD of the slow directions, r = 14: spectral radius 10.12, eigenvalues with |λ| > 0.1: 11, > 0.5: 5
+   two-grid V(2,2) at M = 1, SVD of the slow directions, r = 16: spectral radius 6.44, eigenvalues with |λ| > 0.1: 5, > 0.5: 2
+   two-grid V(2,2) at M = 1, smoothed test vectors, r = 6: spectral radius 30.65, eigenvalues with |λ| > 0.1: 46, > 0.5: 25
+   two-grid V(2,2) at M = 1, smoothed test vectors, r = 8: spectral radius 40.54, eigenvalues with |λ| > 0.1: 36, > 0.5: 18
+   two-grid V(2,2) at M = 1, smoothed test vectors, r = 10: spectral radius 5.01, eigenvalues with |λ| > 0.1: 23, > 0.5: 10
+   two-grid V(2,2) at M = 1, smoothed test vectors, r = 12: spectral radius 0.83, eigenvalues with |λ| > 0.1: 7, > 0.5: 2
+   two-grid V(2,2) at M = 1, smoothed test vectors, r = 14: spectral radius 0.06, eigenvalues with |λ| > 0.1: 0, > 0.5: 0
+   two-grid V(2,2) at M = 1, smoothed test vectors, r = 16: spectral radius 0.01, eigenvalues with |λ| > 0.1: 0, > 0.5: 0
+   two-grid V(2,2) at M = 1, SVD of the slow directions, per slice, r = 6: spectral radius 176.00, eigenvalues with |λ| > 0.1: 40, > 0.5: 23
+   two-grid V(2,2) at M = 1, SVD of the slow directions, per slice, r = 8: spectral radius 238.91, eigenvalues with |λ| > 0.1: 33, > 0.5: 17
+   two-grid V(2,2) at M = 1, SVD of the slow directions, per slice, r = 10: spectral radius 109.38, eigenvalues with |λ| > 0.1: 24, > 0.5: 14
+   two-grid V(2,2) at M = 1, SVD of the slow directions, per slice, r = 12: spectral radius 28.18, eigenvalues with |λ| > 0.1: 16, > 0.5: 8
+   two-grid V(2,2) at M = 1, SVD of the slow directions, per slice, r = 14: spectral radius 16.73, eigenvalues with |λ| > 0.1: 10, > 0.5: 4
+   two-grid V(2,2) at M = 1, SVD of the slow directions, per slice, r = 16: spectral radius 2.35, eigenvalues with |λ| > 0.1: 4, > 0.5: 3
+figures written to /home/claude/report2/figs
