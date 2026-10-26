@@ -9,6 +9,8 @@
 #     precondition!(out, B, p)            out = B⁻¹ p
 #     precondition_adjoint!(out, B, p)    out = B⁻⁺ p, with B⁻⁺ the adjoint of B⁻¹
 #     relinearise!(B, x)                  B rebuilt about the orbit x, optional
+#     metric!(out, B, p)                  out = M p, the operator whose norm measures the steps of the hookstep
+#                                         with metric=:operator, optional
 #
 # A multiple of the identity, `I` by default, leaves both methods as without preconditioning. The
 # hookstep calls relinearise! at the start of every Newton iteration, with the current orbit; L-BFGS
@@ -29,6 +31,17 @@ Apply the adjoint of the inverse of the preconditioner `B` to the orbit `p`, `ou
 the inner product of the orbits. For a self-adjoint `B` it is [`precondition!`](@ref).
 """
 precondition_adjoint!(out::Orbit, B::UniformScaling, p::Orbit) = (out .= p ./ conj(B.λ))
+
+"""
+    metric!(out::Orbit, B, p::Orbit) -> out
+
+Apply to the orbit `p` the operator `M` whose norm measures the steps of
+[`NewtonHookstep`](@ref) with `metric=:operator`, `out = M p`: usually the preconditioner applied
+forward. Extend it for a preconditioner whose inverse is not one fixed operator, e.g. one that
+solves some directions exactly, so that the trust region keeps a fixed metric. For a multiple of
+the identity it multiplies.
+"""
+metric!(out::Orbit, B::UniformScaling, p::Orbit) = (out .= B.λ .* p)
 
 """
     relinearise!(B, x::Orbit) -> B

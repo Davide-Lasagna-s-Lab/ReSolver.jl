@@ -583,6 +583,37 @@ function precondition_adjoint!(out::Orbit, B::KFPreconditioner, p::Orbit)
     return out
 end
 
+# The preconditioner applied forward, the metric of the trust region of the hookstep with metric=:operator: for the
+# factorised kind B p = (J_t + σ)(σ + J_x) p/σ, the blocks applied at all the times, then the temporal modes
+# multiplied by 1 + i ω₀ m/σ on the periodic part; for the diagonal kinds the multipliers; the scales on the
+# parameters
+function ReSolver.metric!(out::Orbit, B::KFPreconditioner, p::Orbit)
+    g  = p.a.g
+    R  = real(eltype(p.a.data))
+    σ  = R(B.σ)
+    c₀ = R(B.c₀)
+
+    # ---- the blocks σ + J_x, for the factorised kind ----
+    if B.kind === :factorised
+        tmp = B.work.fields[end]
+        B.lin(out.a, p.a)
+        out.a.data .= σ .* p.a.data .- c₀ .* ddx!(tmp, p.a).data .- out.a.data
+    else
+        out.a.data .= p.a.data
+    end
+
+    # ---- the temporal modes, on the periodic part ----
+    out.a.data .*= conj.(g.twist)
+    g.timefwd * out.a.data
+    out.a.data .*= g.mask .* B.β ./ g.Ns
+    g.timeinv * out.a.data
+    out.a.data .*= g.twist
+
+    out.p .= p.p .* B.s
+
+    return out
+end
+
 # The blocks σ + J_u,drift + J_u,visc + J_u,conv(s_l) of the factorised preconditioner, solved in
 # place at all the times at once by B.inner steps of GMRES from zero, right preconditioned by their
 # diagonal part B.d: each time has

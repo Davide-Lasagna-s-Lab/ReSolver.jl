@@ -331,6 +331,71 @@ end
 end
 
 
+@testset "scan of the trust radius                                " begin
+    FB = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x), project=demean!)
+
+    # ---- one iteration from the same orbit: the scan tries the radius of the ratio rule among others,
+    #      and keeps the trial of smallest residual ----
+    y₁ = copy(x)
+    y₂ = copy(x)
+    solve!(y₁, FB, NewtonHookstep(maxiter=1, krylov_dim=30, verbose=false))
+    solve!(y₂, FB, NewtonHookstep(maxiter=1, krylov_dim=30, trust=:scan, verbose=false))
+
+    @test objective(FB, y₂) <= objective(FB, y₁) * (1 + 1e-12)
+
+    # ---- several iterations, in flexible GMRES and not: the residual falls, every accepted step has
+    #      ρ > eta, and rejected counts the other trials with ρ ≤ eta ----
+    for flexible in (false, true)
+        y    = copy(x)
+        R₀   = objective(FB, y)
+        info = []
+        solve!(y, FB, NewtonHookstep(; maxiter=4, krylov_dim=30, trust=:scan, flexible, verbose=false,
+                                       callback=i -> (push!(info, i.trust); false)))
+
+        @test objective(FB, y) < R₀
+        @test all(t -> t.ratio > 1e-3, info[2:end])
+        @test all(t -> t.rejected == count(q -> !(q[2] > 1e-3), t.trials), info[2:end])
+        @test all(t -> !isempty(t.trials), info[2:end])
+    end
+
+    @test_throws ArgumentError solve!(copy(x), FB, NewtonHookstep(trust=:line, verbose=false))
+end
+
+
+# the KS preconditioner applied forward, the metric of the trust region with metric=:operator
+function ReSolver.metric!(out::Orbit, B::KSPreconditioner, p::Orbit)
+    transform!(B.û, p.a)
+    B.û.data .*= B.β
+    transform!(out.a, B.û)
+    out.p .= p.p .* B.s
+    return out
+end
+
+@testset "metric of the trust region                              " begin
+    FB = System(nl, lin, adj, dds!, x; linearise!, ddi=(ddx!,), B=KSPreconditioner(x), project=demean!)
+
+    # ---- with a fixed preconditioner M B⁻¹ = I, the metric of the operator is that of the Krylov space: the same
+    #      iterates, with both updates of the radius ----
+    for trust in (:ratio, :scan)
+        y₁ = copy(x)
+        y₂ = copy(x)
+        solve!(y₁, FB, NewtonHookstep(; maxiter=3, krylov_dim=30, flexible=true, trust, verbose=false))
+        solve!(y₂, FB, NewtonHookstep(; maxiter=3, krylov_dim=30, flexible=true, trust, metric=:operator,
+                                        verbose=false))
+        d = similar(y₁)
+        d .= y₁ .- y₂
+
+        @test norm(d) / norm(y₁) < 1e-8
+    end
+
+    # ---- the metric of the operator needs the preconditioned vectors and the plain Krylov space ----
+    @test_throws ArgumentError solve!(copy(x), FB, NewtonHookstep(metric=:operator, verbose=false))
+    @test_throws ArgumentError solve!(copy(x), FB, NewtonHookstep(metric=:operator, flexible=true, recycle=5,
+                                                                  verbose=false))
+    @test_throws ArgumentError solve!(copy(x), FB, NewtonHookstep(metric=:fixed, verbose=false))
+end
+
+
 # the identity, counting the calls of relinearise!
 struct CountingPreconditioner
     calls::Base.RefValue{Int} # number of calls of relinearise!

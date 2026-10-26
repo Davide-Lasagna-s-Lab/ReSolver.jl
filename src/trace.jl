@@ -2,14 +2,16 @@
 
 # the argument of the callbacks
 _info(iter::Int, x::Orbit, R::Real, F, krylov::Vector{Float64}=Float64[], step::String="",
-      trust::NamedTuple=(radius=NaN, length=NaN, ratio=NaN, rejected=0)) =
+      trust::NamedTuple=(radius=NaN, length=NaN, ratio=NaN, rejected=0, trials=Tuple{Float64, Float64}[]);
+      parameter::Real=NaN) =
     (iter        = iter,
      x           = x,
      res         = sqrt(2R),
      evaluations = counts(F.evaluations),
      krylov      = krylov,
      step        = step,
-     trust       = trust)
+     trust       = trust,
+     parameter   = parameter)
 
 """
     Trace()
@@ -32,6 +34,8 @@ History of a search, filled when passed as `callback` to [`LBFGS`](@ref) or
   of that step in the metric of the preconditioner, the ratio of the actual to the predicted
   reduction of `½‖r‖²`, and the number of trial steps rejected before it. They are `NaN` and 0
   for L-BFGS.
+- `trials`, for the hookstep, the radius and the ratio of each trial step rejected before the
+  accepted one, in order. Each rejection divides the radius by 4. It is empty for L-BFGS.
 
 The same trace can follow several calls to `solve!`, such as L-BFGS and then the hookstep. The
 iteration numbers restart at zero with each call.
@@ -56,10 +60,12 @@ struct Trace
      steplength::Vector{Float64}         # length of the accepted step in the metric of B
           ratio::Vector{Float64}         # actual over predicted reduction of ½‖r‖²
        rejected::Vector{Int}             # trial steps rejected before the accepted one
+         trials::Vector{Vector{Tuple{Float64, Float64}}} # their radius and ratio ρ
              t₀::Base.RefValue{Float64}  # wall-clock time of the first record
 
     Trace() = new(Int[], Float64[], Vector{Float64}[], Float64[], NamedTuple[],
-                  Vector{Float64}[], String[], Float64[], Float64[], Float64[], Int[], Ref(0.0))
+                  Vector{Float64}[], String[], Float64[], Float64[], Float64[], Int[],
+                  Vector{Tuple{Float64, Float64}}[], Ref(0.0))
 end
 
 # record one iteration; never stops the search
@@ -77,6 +83,7 @@ function (trace::Trace)(info::NamedTuple)
     push!(trace.steplength, info.trust.length)
     push!(trace.ratio, info.trust.ratio)
     push!(trace.rejected, info.trust.rejected)
+    push!(trace.trials, copy(get(info.trust, :trials, Tuple{Float64, Float64}[])))
 
     return false
 end
