@@ -45,8 +45,8 @@
 # factorisation on the rest, maps a unit y to a long step along the directions on which 𝒥 is small, and the trust
 # region no longer bounds them. With metric=:operator the length of a step is ‖M δx‖, M applied by `metric!` of the
 # preconditioner (precondition.jl), e.g. the cheap factorisation applied forward: with flexible GMRES and
-# Wₙ = M Zₙ, ‖M δx‖ = ‖R y‖ with Rᵀ R = Wₙᵀ Wₙ, built one column per Arnoldi step, and (3) keeps its form in u = R y,
-# with H R⁻¹ in place of H.
+# M Zₙ = Wₙ R, Wₙ orthonormal and R upper triangular, ‖M δx‖ = ‖R y‖, built one column per Arnoldi step by
+# Gram-Schmidt, and (3) keeps its form in u = R y, with H R⁻¹ in place of H.
 #
 # Trust-region update. The linear model predicts the reduction ½(β² - ‖g - H y‖²) of ½‖r‖²; the
 # step is evaluated by the ratio ρ of the actual reduction to the predicted one:
@@ -182,8 +182,9 @@ function solve!(     x::Orbit,
     U  = typeof(x)[] # recycled directions of the step, carried from one Newton system to the next
     dp = similar(x) # the column ∂r/∂σ of a free parameter, normalised
     nd = 1.0        # its norm
-    ϵ  = 100 * eps(typeof(dot(x.a, x.a))) # with metric=:operator, the relative size below which the inner
-                                          # products of the vectors M zⱼ are rounding, in the precision of x
+    ϵ  = 100 * eps(typeof(dot(x.a, x.a))) # with metric=:operator, the relative singular value below which the
+                                          # vectors M zⱼ, scaled to unit length, depend on each other to rounding,
+                                          # in the precision of x
 
     # ---- initial residual, on the invariant subspace of the system ----
     F.project(x.a)
@@ -235,8 +236,8 @@ function solve!(     x::Orbit,
         # the operator is followed by the projection off C, whose coefficients E = Cᵀ 𝒥 zⱼ are kept
         Z   = typeof(x)[]
         E   = Vector{Float64}[]
-        W   = typeof(x)[]          # with metric=:operator, M zⱼ for each zⱼ
-        Gw  = Vector{Float64}[]    # and their inner products, ⟨wᵢ, wⱼ⟩ for i ≤ j
+        W   = typeof(x)[]          # with metric=:operator, the vectors M zⱼ orthonormalised
+        Gw  = Vector{Float64}[]    # and the columns of R, M Zₙ = Wₙ R, upper triangular
         A!  = flexible ?
               (out, v) -> (push!(Z, _precondition!(similar(x), F, v)); _metric!(W, Gw, F, Z[end], metric);
                            jacobian!(out, F, x, Z[end]); _deflate!(out, C, E)) :
@@ -471,25 +472,55 @@ function _hookstep(SH::SVD, g::Vector, Δ::Real)
 end
 
 
-# M z into W and its inner products with the vectors before it into G, with metric=:operator; nothing otherwise
+# M z, orthonormalised against the vectors before it, into W, and its coordinates on them, a column of R, into G,
+# with metric=:operator; nothing otherwise. Gram-Schmidt is applied twice, so that R keeps the precision of the
+# vectors when their lengths spread over orders of magnitude, as they do when a coarse level solves a few slow
+# directions exactly: the Gram matrix of the vectors would square that spread, and its small eigenvalues, those of
+# the directions of the fine level, would fall below rounding
 function _metric!(W::Vector{X}, G::Vector{Vector{Float64}}, F::System, z::X, metric::Symbol) where {X}
     metric === :operator || return W
-    push!(W, metric!(similar(z), F.B, z))
-    push!(G, [dot(wi, W[end]) for wi in W])
+
+    # ---- M z, then its components along the vectors before it, removed twice ----
+    w = metric!(similar(z), F.B, z)
+    c = zeros(length(W) + 1)
+    for _ in 1:2
+        for (i, wi) in enumerate(W)
+            h     = dot(wi, w)
+            w   .-= h .* wi
+            c[i] += h
+        end
+    end
+
+    # ---- the length of the rest, and the rest normalised ----
+    c[end] = norm(w)
+    c[end] > 0 && (w ./= c[end])
+
+    push!(W, w)
+    push!(G, c)
+
     return W
 end
 
-# R and R⁻¹ with Rᵀ R the Gram matrix of the first m vectors M zⱼ, from its eigenvalues, without the directions of
-# eigenvalues below ϵ times the largest, which rounding sets: there the vectors depend on each other, the hookstep
-# would take long steps for nothing, and R⁻¹ maps the coordinates u of the kept directions back to y; the identity
-# with metric=:krylov
+# R and R⁻¹ for the first m vectors M zⱼ = Wₙ R eⱼ, from the SVD of R with its columns scaled to unit length, without
+# the directions of singular values below ϵ times the largest, which rounding sets: there the vectors depend on each
+# other, the hookstep would take long steps for nothing, and R⁻¹ maps the coordinates u of the kept directions back
+# to y. Scaling the columns first keeps the short vectors, those of the fine level, beside the long ones, those that
+# the coarse level stretches. The identity with metric=:krylov
 function _root(G::Vector{Vector{Float64}}, m::Int, metric::Symbol, ϵ::Real)
     metric === :operator || return I, I
-    C    = [G[max(i, j)][min(i, j)] for i in 1:m, j in 1:m]
-    λ, V = eigen(Symmetric(C))
-    keep = λ .> ϵ * maximum(λ)
-    s    = sqrt.(λ[keep])
-    return s .* V[:, keep]', V[:, keep] ./ s'
+
+    # ---- R, and the lengths of its columns, the lengths of the vectors M zⱼ ----
+    R = [i <= j ? G[j][i] : 0.0 for i in 1:m, j in 1:m]
+    D = [max(norm(view(R, :, j)), floatmin()) for j in 1:m]
+
+    # ---- the SVD of R D⁻¹, without the directions that rounding sets ----
+    _, s, V = svd(R ./ D')
+    keep    = s .> ϵ * maximum(s)
+    s       = s[keep]
+    V       = V[:, keep]
+
+    # ‖R y‖ = ‖diag(s) Vᵀ D y‖
+    return s .* V' .* D', (V ./ s') ./ D
 end
 
 

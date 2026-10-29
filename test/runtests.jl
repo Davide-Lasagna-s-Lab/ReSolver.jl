@@ -388,6 +388,32 @@ end
         @test norm(d) / norm(y₁) < 1e-8
     end
 
+    # ---- vectors of lengths that spread over eight orders of magnitude, as when a coarse level stretches one slow
+    #      direction: the metric keeps every short vector beside the long ones, and ‖R y‖ = ‖M Z y‖ ----
+    s = random_orbit(0.4, 0.2)
+    Z = [random_orbit(0.4, 0.2) for _ in 1:10]
+    for z in Z
+        z .+= 1e8 .* s
+    end
+
+    W = typeof(x)[]
+    G = Vector{Float64}[]
+    for z in Z
+        ReSolver._metric!(W, G, FB, z, :operator)
+    end
+    Rm, Ri = ReSolver._root(G, 10, :operator, 100 * eps())
+
+    y  = randn(10)
+    My = similar(x)
+    My .= 0
+    for (yj, z) in zip(y, Z)
+        My .+= yj .* ReSolver.metric!(similar(x), FB.B, z)
+    end
+
+    @test size(Rm, 1) == 10
+    @test abs(norm(Rm * y) - norm(My)) / norm(My) < 1e-6
+    @test norm(Rm * Ri - I) < 1e-6
+
     # ---- the metric of the operator needs the preconditioned vectors and the plain Krylov space ----
     @test_throws ArgumentError solve!(copy(x), FB, NewtonHookstep(metric=:operator, verbose=false))
     @test_throws ArgumentError solve!(copy(x), FB, NewtonHookstep(metric=:operator, flexible=true, recycle=5,
